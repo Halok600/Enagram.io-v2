@@ -1,0 +1,42 @@
+{
+  "name": "enagram-io-v2",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "eval": "bun run evals/run-evals.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "4.0.31",
+    "@ai-sdk/react": "4.0.53",
+    "ai": "7.0.50",
+    "framer-motion": "13.0.0",
+    "googleapis": "174.0.0",
+    "lucide-react": "1.28.0",
+    "next": "16.2.12",
+    "next-auth": "5.0.0-beta.32",
+    "postgres": "3.4.9",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "10.1.0",
+    "unpdf": "1.8.0",
+    "yaml": "2.9.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-pgvector": "0.0.9",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "20.19.43",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.2.12",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  }
+}
