@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test \"src/**/*.test.ts\"",
+    "smoke": "node --env-file=.env.local scripts/smoke.ts",
     "eval": "bun run evals/run-evals.ts"
   },
   "dependencies": {

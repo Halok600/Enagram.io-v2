@@ -1,6 +1,5 @@
 import { auth, signIn } from "@/auth";
 import { Workspace } from "./chat/Workspace";
-import { isIngestionAvailable } from "@/lib/brain/ingest-tunnel";
 
 export default async function Home() {
   const session = await auth();
@@ -9,19 +8,7 @@ export default async function Home() {
     return <LoginScreen />;
   }
 
-  // Ingestion (git commit + gbrain sync) shells out to a gbrain binary and a
-  // local brain/ git repo — neither exists on Vercel's serverless functions
-  // directly, but INGEST_TUNNEL_URL can proxy to a worker that has them
-  // (see ingest-tunnel.ts). See JOURNAL.md 2026-08-05 and 2026-08-19.
-  const ingestionEnabled = isIngestionAvailable();
-
-  return (
-    <Workspace
-      email={session.user?.email ?? "unknown"}
-      name={session.user?.name ?? undefined}
-      ingestionEnabled={ingestionEnabled}
-    />
-  );
+  return <Workspace email={session.user?.email ?? "unknown"} name={session.user?.name ?? undefined} />;
 }
 
 function LoginScreen() {

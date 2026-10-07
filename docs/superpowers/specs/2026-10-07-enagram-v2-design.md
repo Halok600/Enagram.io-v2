@@ -177,6 +177,7 @@ a 15s statement/connect timeout so a dead database errors fast, not at Vercel's 
 |---|---|
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, auth secret, `GOOGLE_GENERATIVE_AI_API_KEY` | unchanged, already in the Vercel project |
 | `DATABASE_URL` | **new** — Supabase pooler connection string (the same one Render uses as its DB URL) |
+| `ALLOWED_EMAILS` | **new** — comma-separated Google emails allowed to sign in and call any API route (unset = unrestricted, so the live deployment keeps working); must be set before the Google OAuth app is published, because every route reads one shared database |
 | `CRON_SECRET` | must be set in Vercel (the keepalive returns 401 without it); the daily `/api/keepalive` cron stays and now runs `select 1` plus a row count against Supabase directly |
 | `GBRAIN_*`, `INGEST_TUNNEL_*` | removed; Render, Colab and ngrok can be shut down |
 

@@ -2,8 +2,7 @@
  * Real eval loop for the Enagram.io assignment (harness-engineering
  * bonus, SPEC.md §5). Runs the actual production tool set and system
  * prompt (shared via src/lib/query/config.ts — not a hand-copied duplicate)
- * against real live data (the deployed gbrain brain over the remote MCP
- * server), so a pass here means the real system behaves correctly, not a
+ * against real live data (the deployed brain (Supabase)), so a pass here means the real system behaves correctly, not a
  * mock. Run with: `npm run eval` (or `bun run evals/run-evals.ts`).
  *
  * Each case checks two independent things:
@@ -131,7 +130,7 @@ function renderLog(results: CaseResult[]): string {
 }
 
 async function main() {
-  console.log(`Running ${EVAL_CASES.length} eval cases against live gbrain + ${CHAT_MODEL_ID}...\n`);
+  console.log(`Running ${EVAL_CASES.length} eval cases against the live database + ${CHAT_MODEL_ID}...\n`);
   const results: CaseResult[] = [];
 
   for (const evalCase of EVAL_CASES) {

@@ -1,13 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
-import {
-  searchGmail,
-  searchDrive,
-  searchCalendar,
-  savePreference,
-  forgetPreference,
-  findRelated,
-} from "@/lib/brain/gbrain-remote";
+import { getBrain } from "@/lib/store/service";
+import type { BrainSearchHit } from "@/lib/store/types";
+import { reingestCalendar } from "@/lib/sync/calendar";
 import { createDraftReply } from "@/lib/google/gmail";
 import { createEvent, updateEvent, deleteEvent } from "@/lib/google/calendar";
 import { friendlyGoogleErrorMessage } from "@/lib/google/friendly-error";
@@ -24,7 +19,7 @@ function extractGmailThreadId(url?: string): string | undefined {
   return url?.match(/#all\/([^/?]+)$/)?.[1];
 }
 
-function formatHits(hits: Awaited<ReturnType<typeof searchGmail>>) {
+function formatHits(hits: BrainSearchHit[]) {
   if (hits.length === 0) {
     return { count: 0, results: [] };
   }
@@ -46,6 +41,16 @@ function formatHits(hits: Awaited<ReturnType<typeof searchGmail>>) {
   };
 }
 
+/** Server-side log line naming the failing tool, so a broken chat is diagnosable from Vercel logs. */
+async function logged<T>(toolName: string, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (err) {
+    console.error(`Tool ${toolName} failed`, err);
+    throw err;
+  }
+}
+
 export const searchGmailTool = tool({
   description:
     "Search the user's Gmail (already ingested into the brain) for emails matching a query. " +
@@ -54,7 +59,8 @@ export const searchGmailTool = tool({
     query: z.string().describe("What to search for in the user's emails"),
     limit: z.number().int().min(1).max(20).default(8),
   }),
-  execute: async ({ query, limit }) => formatHits(await searchGmail(query, limit)),
+  execute: async ({ query, limit }) =>
+    logged("search_gmail", async () => formatHits(await (await getBrain()).searchGmail(query, limit))),
 });
 
 export const searchDriveTool = tool({
@@ -65,7 +71,8 @@ export const searchDriveTool = tool({
     query: z.string().describe("What to search for in the user's Drive files"),
     limit: z.number().int().min(1).max(20).default(8),
   }),
-  execute: async ({ query, limit }) => formatHits(await searchDrive(query, limit)),
+  execute: async ({ query, limit }) =>
+    logged("search_drive", async () => formatHits(await (await getBrain()).searchDrive(query, limit))),
 });
 
 export const searchCalendarTool = tool({
@@ -77,7 +84,8 @@ export const searchCalendarTool = tool({
     query: z.string().describe("What to search for in the user's calendar events"),
     limit: z.number().int().min(1).max(20).default(8),
   }),
-  execute: async ({ query, limit }) => formatHits(await searchCalendar(query, limit)),
+  execute: async ({ query, limit }) =>
+    logged("search_calendar", async () => formatHits(await (await getBrain()).searchCalendar(query, limit))),
 });
 
 export const savePreferenceTool = tool({
@@ -90,7 +98,7 @@ export const savePreferenceTool = tool({
       .string()
       .describe("A clean, well-formed statement of the fact/preference to remember, written in third person"),
   }),
-  execute: async ({ fact }) => savePreference(fact),
+  execute: async ({ fact }) => logged("save_preference", async () => (await getBrain()).savePreference(fact)),
 });
 
 export const forgetPreferenceTool = tool({
@@ -100,23 +108,23 @@ export const forgetPreferenceTool = tool({
   inputSchema: z.object({
     fact: z.string().describe("The preference/fact to remove — matched against saved entries by substring"),
   }),
-  execute: async ({ fact }) => forgetPreference(fact),
+  execute: async ({ fact }) => logged("forget_preference", async () => (await getBrain()).forgetPreference(fact)),
 });
 
 export const findRelatedTool = tool({
   description:
     "Find items linked to a specific search result across OTHER sources (e.g. a Drive file and Calendar " +
-    "event linked to a Gmail thread) via gbrain's graph, built from shared participants during ingestion. " +
+    "event linked to a Gmail thread) via links built from shared participants during sync. " +
     "Pass the slug field from a prior search_gmail/search_drive/search_calendar result. Prefer this over a " +
     "blind re-search when you've already found one relevant item and need to check other sources for the " +
     "same real-world thread — it returns exactly what's connected instead of guessing a new query.",
   inputSchema: z.object({
     slug: z.string().describe("The slug field from a prior search result"),
   }),
-  execute: async ({ slug }) => findRelated(slug),
+  execute: async ({ slug }) => logged("find_related", async () => (await getBrain()).findRelated(slug)),
 });
 
-function createCalendarEventTool(accessToken: string) {
+function createCalendarEventTool(accessToken: string, ownEmail: string) {
   return tool({
     description:
       "Create a new event on the user's Google Calendar. Only call this when the user explicitly asks " +
@@ -132,6 +140,7 @@ function createCalendarEventTool(accessToken: string) {
     execute: async ({ summary, startDateTime, endDateTime, description, location }) => {
       try {
         const event = await createEvent(accessToken, { summary, startDateTime, endDateTime, description, location });
+        await reingestCalendar(accessToken, ownEmail);
         return { status: "created" as const, summary: event.summary, start: event.start, webLink: event.htmlLink };
       } catch (err) {
         return {
@@ -143,7 +152,7 @@ function createCalendarEventTool(accessToken: string) {
   });
 }
 
-function updateCalendarEventTool(accessToken: string) {
+function updateCalendarEventTool(accessToken: string, ownEmail: string) {
   return tool({
     description:
       "Update an existing Google Calendar event — only the fields you provide are changed, everything " +
@@ -169,6 +178,7 @@ function updateCalendarEventTool(accessToken: string) {
           description,
           location,
         });
+        await reingestCalendar(accessToken, ownEmail);
         return { status: "updated" as const, summary: event.summary, start: event.start, webLink: event.htmlLink };
       } catch (err) {
         return {
@@ -180,7 +190,7 @@ function updateCalendarEventTool(accessToken: string) {
   });
 }
 
-function deleteCalendarEventTool(accessToken: string) {
+function deleteCalendarEventTool(accessToken: string, ownEmail: string) {
   return tool({
     description:
       "Permanently delete an event from the user's Google Calendar. Only call this when the user " +
@@ -193,6 +203,7 @@ function deleteCalendarEventTool(accessToken: string) {
     execute: async ({ eventId }) => {
       try {
         await deleteEvent(accessToken, eventId);
+        await reingestCalendar(accessToken, ownEmail);
         return { status: "deleted" as const, eventId };
       } catch (err) {
         return {
@@ -230,12 +241,11 @@ function createDraftGmailReplyTool(accessToken: string) {
 /**
  * A factory, not a static object: draft_gmail_reply needs the requesting
  * user's live OAuth access token (it writes to their real Gmail), unlike
- * the two search tools which go through the shared remote gbrain server
- * with its own static token. Called with no token (the eval harness has no
+ * the search tools which read the shared database. Called with no token (the eval harness has no
  * real user session) simply omits the draft tool — automated eval runs
  * should never create real Gmail drafts as a side effect.
  */
-export function createBrainTools(accessToken?: string): {
+export function createBrainTools(accessToken?: string, ownEmail = ""): {
   search_gmail: typeof searchGmailTool;
   search_drive: typeof searchDriveTool;
   search_calendar: typeof searchCalendarTool;
@@ -257,9 +267,9 @@ export function createBrainTools(accessToken?: string): {
     ...(accessToken
       ? {
           draft_gmail_reply: createDraftGmailReplyTool(accessToken),
-          create_calendar_event: createCalendarEventTool(accessToken),
-          update_calendar_event: updateCalendarEventTool(accessToken),
-          delete_calendar_event: deleteCalendarEventTool(accessToken),
+          create_calendar_event: createCalendarEventTool(accessToken, ownEmail),
+          update_calendar_event: updateCalendarEventTool(accessToken, ownEmail),
+          delete_calendar_event: deleteCalendarEventTool(accessToken, ownEmail),
         }
       : {}),
   };

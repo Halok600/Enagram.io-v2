@@ -4,7 +4,7 @@ export const EMBEDDING_DIMENSIONS = 768;
 
 /**
  * Idempotent, run once per cold start (service.ts). Table names are prefixed
- * `enagram_` so they cannot collide with gbrain's tables in the same Supabase
+ * `enagram_` so they cannot collide with other tables in the same Supabase
  * project. Two cold starts racing `create table if not exists` can make one of
  * them fail; the failure is not cached, so the next request succeeds.
  *

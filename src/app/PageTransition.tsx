@@ -19,7 +19,7 @@ import type { ReactNode } from "react";
  * normal, synchronous, un-coordinated unmount+mount — there's no exit
  * phase to get stuck waiting on. Trades a full crossfade for a plainer
  * fade-in on arrival; reliable navigation matters far more than the
- * extra polish. See JOURNAL.md 2026-08-13.
+ * extra polish.
  */
 export function PageTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();

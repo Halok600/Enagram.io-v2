@@ -57,8 +57,7 @@ export function CalendarBoard() {
   const gridEnd = useMemo(() => addDays(gridStart, gridDays), [gridStart, gridDays]);
 
   // Deliberately NOT async/await: this project's lint config flags any
-  // setState reachable synchronously from an effect body (see JOURNAL.md
-  // 2026-08-10, the useSpeechRecognition fix earlier this session). An
+  // setState reachable synchronously from an effect body. An
   // async function's statements before its first `await` still run
   // synchronously when invoked, so `setLoading(true)` as the first line of
   // an async fetchEvents would trip the same rule. Structuring this as a

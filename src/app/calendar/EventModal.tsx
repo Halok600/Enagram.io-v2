@@ -288,7 +288,7 @@ export function EventModal({
                  * were later wrapped in an outer AnimatePresence (the same
                  * "child animation never signals exit-complete" mechanism
                  * that caused the blank-page navigation bug, see
-                 * PageTransition.tsx / JOURNAL.md 2026-08-13). */}
+                 * PageTransition.tsx). */}
                 {confirmingDelete ? (
                   <motion.div
                     key="confirm"

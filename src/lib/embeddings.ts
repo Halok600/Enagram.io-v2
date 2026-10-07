@@ -12,7 +12,7 @@ function options(taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY") {
 }
 
 /**
- * Same model and size v1's gbrain used (gemini-embedding-001 at 768 dimensions).
+ * gemini-embedding-001 at 768 dimensions.
  * Reads GOOGLE_GENERATIVE_AI_API_KEY at call time, not at import.
  */
 export function createEmbedder(model: EmbeddingModel = google.embedding("gemini-embedding-001")): Embedder {

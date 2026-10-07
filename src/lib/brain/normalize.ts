@@ -40,9 +40,8 @@ function formatEventTimeRange(start: string, end: string): string {
 export function calendarEventToBrainDocument(event: CalendarEvent): BrainDocument {
   const participants = [event.organizer, ...event.attendees].filter(Boolean).map((a) => a.toLowerCase());
 
-  // Restated as body text (not just frontmatter) for the same reason
-  // participants are in gmailMessageToBrainDocument below — gbrain only
-  // indexes/returns body text to search, never frontmatter.
+  // Restated as body text (not just a field) so keyword and semantic search can
+  // see it — only title and body are indexed.
   const body = [
     `When: ${formatEventTimeRange(event.start, event.end)}`,
     event.location ? `Location: ${event.location}` : null,

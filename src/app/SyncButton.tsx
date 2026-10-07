@@ -2,33 +2,25 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-
-type SyncResult = {
-  gmailCount: number;
-  driveCount: number;
-  calendarCount: number;
-  pagesWritten: number;
-  committed: boolean;
-  linksCreated: number;
-  indexing: "completed" | "background" | "skipped";
-  syncLog: string;
-};
+import { runFullSync, type FullSyncResult } from "./syncClient";
 
 type SyncState = "idle" | "loading" | "done" | "error";
 
 export function SyncButton() {
   const [state, setState] = useState<SyncState>("idle");
-  const [result, setResult] = useState<SyncResult | null>(null);
+  const [result, setResult] = useState<FullSyncResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
 
   async function handleSync() {
     setState("loading");
     setError(null);
+    setProgress(null);
     try {
-      const res = await fetch("/api/ingest/sync", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Sync failed");
-      setResult(data);
+      const final = await runFullSync({
+        onProgress: (p) => setProgress(p.remaining > 0 ? `${p.remaining} document(s) left to index...` : null),
+      });
+      setResult(final);
       setState("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
@@ -51,37 +43,25 @@ export function SyncButton() {
         {state === "loading" ? "Syncing..." : "Sync now"}
       </motion.button>
 
+      {state === "loading" && progress && (
+        <p className="text-xs leading-snug text-[var(--text-tertiary)]">{progress}</p>
+      )}
+
       {state === "done" && result && (
         <>
           <p className="text-xs leading-snug text-[var(--text-tertiary)]">
-            {result.gmailCount} email(s) + {result.driveCount} file(s) + {result.calendarCount} event(s) →{" "}
-            {result.pagesWritten} page(s)
-            {result.committed ? `, synced (${result.linksCreated} link(s))` : " (no changes)"}.
+            {result.counts
+              ? `${result.counts.gmail} email(s) + ${result.counts.drive} file(s) + ${result.counts.calendar} event(s) → `
+              : ""}
+            {result.documents} document(s)
+            {result.changed > 0 ? `, ${result.changed} updated` : " (no changes)"}.
           </p>
-          {result.indexing === "skipped" && (
+          {result.stalled && (
             <p className="text-xs leading-snug text-[var(--danger)]">
-              ⚠ Indexing was skipped — another sync was already running (or its lock got stuck). Your
-              data above was written and committed, but isn&apos;t searchable yet. Wait a moment and try
-              again.
+              ⚠ Search by meaning is still catching up (the embedding service is busy). Keyword search
+              already works. Press Sync again in a minute.
             </p>
           )}
-          {result.indexing === "background" && (
-            <p className="text-xs leading-snug text-[var(--text-tertiary)]">
-              Written and committed — indexing is still running on the sync worker. Check back in a bit.
-            </p>
-          )}
-          {/* Previously silently discarded — gbrain's own sync/embed output was fetched but never
-           * shown anywhere, so a stuck lock (which makes every click LOOK successful, since the git
-           * commit step really does succeed) had no way to be diagnosed from the browser. Collapsed
-           * by default since it's raw CLI output, but auto-opened when something's actually wrong. */}
-          <details open={result.indexing !== "completed"} className="text-xs text-[var(--text-tertiary)]">
-            <summary className="cursor-pointer select-none hover:text-[var(--text-secondary)]">
-              View sync log
-            </summary>
-            <pre className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg-panel-raised)] p-2 font-mono text-[11px] leading-snug text-[var(--text-secondary)]">
-              {result.syncLog || "(empty)"}
-            </pre>
-          </details>
         </>
       )}
 

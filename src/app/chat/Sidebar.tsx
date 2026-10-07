@@ -119,11 +119,9 @@ function ActiveTools({ tools }: { tools: string[] }) {
 export function Sidebar({
   email,
   activeTools,
-  ingestionEnabled,
 }: {
   email: string;
   activeTools: string[];
-  ingestionEnabled: boolean;
 }) {
   return (
     <aside className="flex h-full w-80 shrink-0 flex-col justify-between rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-sidebar)] p-6">
@@ -156,13 +154,7 @@ export function Sidebar({
       </div>
 
       <div className="flex flex-col gap-3">
-        {ingestionEnabled ? (
-          <SyncButton />
-        ) : (
-          <p className="text-xs leading-snug text-[var(--text-tertiary)]">
-            Re-sync runs from local dev only — this deployment reads the same shared brain.
-          </p>
-        )}
+        <SyncButton />
         <form action={disconnect}>
           <motion.button
             type="submit"

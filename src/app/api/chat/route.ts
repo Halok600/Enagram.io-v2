@@ -11,13 +11,11 @@ import { requireSession } from "@/lib/auth-guard";
 import { createBrainTools } from "@/lib/query/tools";
 import { CHAT_MODEL_ID, getSystemPrompt } from "@/lib/query/config";
 import { createToolBudget } from "@/lib/query/tool-budget";
-import { getPreferences } from "@/lib/brain/gbrain-remote";
+import { getBrain } from "@/lib/store/service";
 
 // 60s is the max Vercel's Hobby plan allows. Needed as headroom: the model
 // can call search_gmail/search_drive multiple times per turn, each one a
-// network round-trip to the remote gbrain server (Render) — see
-// gbrain-remote.ts's MAX_URL_LOOKUPS cap (JOURNAL.md 2026-08-05) for the
-// matching fix on the latency side, not just the ceiling.
+// round-trip to the database and the embedding API.
 export const maxDuration = 60;
 
 /**
@@ -49,21 +47,32 @@ function friendlyErrorMessage(error: unknown): string {
   return "[ SYSTEM_ALERT ] Something went wrong generating a response. Please try again.";
 }
 
+/** A broken or paused database must not stop the chat from replying at all: continue without preferences. */
+async function loadPreferences(): Promise<string[]> {
+  try {
+    return await (await getBrain()).getPreferences();
+  } catch (err) {
+    console.error("Preferences unavailable; continuing without them", err);
+    return [];
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { session, error } = await requireSession();
     if (error) return error;
 
     const { messages }: { messages: UIMessage[] } = await req.json();
+
     const startedAt = Date.now();
-    const preferences = await getPreferences();
+    const preferences = await loadPreferences();
     const systemPrompt = getSystemPrompt(preferences);
 
     const result = streamText({
       model: google(CHAT_MODEL_ID),
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
-      tools: createBrainTools(session.accessToken),
+      tools: createBrainTools(session.accessToken, session.user?.email ?? ""),
       stopWhen: stepCountIs(5),
       // See tool-budget.ts: once ~28s are spent, force an answer rather than
       // let more search steps run into Vercel's 60s kill with nothing shown.

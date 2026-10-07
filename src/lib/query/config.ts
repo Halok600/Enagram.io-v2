@@ -8,7 +8,6 @@
 // quota) and "gemini-2.0-flash" has ZERO free quota on this key — both
 // verified by direct API probing. "gemini-flash-lite-latest" is the one
 // model confirmed to actually have usable free-tier quota right now.
-// See JOURNAL.md 2026-08-04.
 export const CHAT_MODEL_ID = "gemini-flash-lite-latest";
 
 /**

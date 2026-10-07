@@ -8,7 +8,6 @@
    instead of glow, standard rounded corners. Theme is toggled via
    [data-theme] on <html> (see ThemeProvider.tsx) — every color below is
    a token so components never need to know which theme is active.
-   See JOURNAL.md 2026-08-10.
 --------------------------------------------------------------------- */
 :root {
   --bg: #0b0d12;

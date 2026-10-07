@@ -9,8 +9,7 @@ import { useTheme } from "../ThemeProvider";
  * rounded double-curve wings and small ears, deliberately NOT DC/Warner
  * Bros' angular, scalloped-edge Batman emblem or the Arkham games' specific
  * art style. Same broad "bat for a dark/night theme" territory as the 🦇
- * emoji, not a recreation of anyone's registered trademark. See JOURNAL.md
- * 2026-08-10.
+ * emoji, not a recreation of anyone's registered trademark.
  */
 function BatSilhouette({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (

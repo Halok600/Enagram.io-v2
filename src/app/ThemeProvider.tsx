@@ -33,8 +33,7 @@ const ThemeContext = createContext<{
  * client's first hydration pass whenever the user's real stored
  * preference was "light" — invisible until someone actually had "light"
  * saved and reloaded. `suppressHydrationWarning` on <html> in layout.tsx
- * only covers that one element's own attribute, not this. See JOURNAL.md
- * 2026-08-13.
+ * only covers that one element's own attribute, not this.
  */
 function readInitialTheme(): Theme {
   if (typeof document === "undefined") return "dark";

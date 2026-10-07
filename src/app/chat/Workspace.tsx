@@ -5,6 +5,9 @@ import { useChat, type UseChatHelpers } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { Sidebar } from "./Sidebar";
 import { Chat } from "./Chat";
+import { runFullSync } from "../syncClient";
+import { DbStatusBanner } from "./DbStatusBanner";
+import { friendlyClientError } from "@/lib/client-errors";
 
 const TOOL_TYPES = [
   "tool-search_gmail",
@@ -47,15 +50,7 @@ function computeActiveTools(messages: UIMessage[]): string[] {
   return Array.from(active);
 }
 
-export function Workspace({
-  email,
-  name,
-  ingestionEnabled,
-}: {
-  email: string;
-  name?: string;
-  ingestionEnabled: boolean;
-}) {
+export function Workspace({ email, name }: { email: string; name?: string }) {
   // useChat's sendMessage({ messageId }) REPLACES an existing message with
   // that id — it doesn't let you assign an id to a new one — so a real id
   // for the user's own message isn't knowable until the hook creates it.
@@ -77,7 +72,7 @@ export function Workspace({
     // via the API route's onError, see route.ts) and network-level failures.
     // error.message is already the human-readable string the server crafted.
     onError: (error) => {
-      setSystemError(error.message);
+      setSystemError(friendlyClientError(error.message));
     },
   });
 
@@ -91,13 +86,13 @@ export function Workspace({
   // still exists for a manual re-sync, and still shows its own result.
   const autoSyncedRef = useRef(false);
   useEffect(() => {
-    if (!ingestionEnabled || autoSyncedRef.current) return;
+    if (autoSyncedRef.current) return;
     autoSyncedRef.current = true;
-    fetch("/api/ingest/sync", { method: "POST" })
-      .then((res) => res.json())
-      .then((data) => console.log("Auto-sync on load:", data))
+    // Throttled server-side (skipped if a sync finished in the last 10 minutes).
+    runFullSync({ auto: true })
+      .then((result) => console.log("Auto-sync on load:", result))
       .catch((err) => console.error("Auto-sync on load failed:", err));
-  }, [ingestionEnabled]);
+  }, []);
 
   function sendStampedMessage(text: string) {
     setSystemError(null);
@@ -112,8 +107,9 @@ export function Workspace({
 
   return (
     <div className="flex h-screen w-screen gap-4 overflow-hidden p-4">
-      <Sidebar email={email} activeTools={activeTools} ingestionEnabled={ingestionEnabled} />
+      <Sidebar email={email} activeTools={activeTools} />
       <main className="flex min-w-0 flex-1 flex-col">
+        <DbStatusBanner />
         <Chat
           name={name}
           messages={chat.messages}

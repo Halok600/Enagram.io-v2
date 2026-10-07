@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedCron } from "@/lib/cron-auth";
-import { pingBrain } from "@/lib/brain/gbrain-remote";
+import { describeDbError } from "@/lib/db-errors";
+import { checkHealth } from "@/lib/store/health";
+import { getDb } from "@/lib/store/service";
 
-// Matches pingBrain's 50s timeout — a cold Render instance can take most of a
-// minute to wake, and the whole point is to reach Supabase through it.
 export const maxDuration = 60;
 
 /**
- * Daily Vercel Cron target (see vercel.json). Keeps the free-tier Supabase
- * project from auto-pausing after ~7 idle days, which silently takes the whole
- * app down. Not session-authenticated (cron has no user); guarded by
- * CRON_SECRET instead.
+ * Daily Vercel Cron target (see vercel.json). A real query keeps the free-tier
+ * Supabase project from auto-pausing after ~7 idle days, which silently took
+ * the v1 app down. Not session-authenticated (cron has no user); guarded by
+ * CRON_SECRET and fails closed when it is unset.
  */
 export async function GET(req: Request) {
   if (!isAuthorizedCron(req.headers.get("authorization"), process.env.CRON_SECRET)) {
@@ -18,12 +18,9 @@ export async function GET(req: Request) {
   }
 
   try {
-    return NextResponse.json(await pingBrain());
+    return NextResponse.json({ ok: true, ...(await checkHealth(await getDb())) });
   } catch (err) {
-    console.error("Keepalive ping failed", err);
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Keepalive ping failed" },
-      { status: 502 },
-    );
+    console.error("Keepalive failed", err);
+    return NextResponse.json({ ok: false, error: describeDbError(err).message }, { status: 502 });
   }
 }

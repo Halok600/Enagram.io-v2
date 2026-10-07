@@ -11,7 +11,7 @@ export type StoredDocument = {
   eventId: string | null; // raw Google Calendar event id (calendar only)
 };
 
-/** Same shape v1's gbrain search returned, so the chat tools format it unchanged. */
+/** One search hit, in the shape the chat tools format. */
 export type BrainSearchHit = {
   slug: string;
   type: "email" | "source" | "event";

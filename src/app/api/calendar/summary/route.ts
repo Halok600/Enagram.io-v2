@@ -4,7 +4,7 @@ import { listEvents } from "@/lib/google/calendar";
 import { friendlyGoogleErrorMessage } from "@/lib/google/friendly-error";
 import { parseEventDate } from "@/lib/calendar-date";
 
-/** Powers the sidebar's Calendar hover card — live data (not gbrain's
+/** Powers the sidebar's Calendar hover card — live data (not the
  * indexed snapshot), fetched on demand on hover, so it's always accurate
  * even if a sync hasn't run recently. */
 export async function GET() {

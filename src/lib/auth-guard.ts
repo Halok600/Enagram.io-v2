@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
+import { isEmailAllowed } from "@/lib/allowed-email";
 
 export type AuthedSession = Session & { accessToken: string };
 
@@ -20,6 +21,13 @@ export async function requireSession(): Promise<
   const session = await auth();
   if (!session?.accessToken) {
     return { session: null, error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
+  }
+  // Defence in depth for sessions created before ALLOWED_EMAILS was set.
+  if (!isEmailAllowed(session.user?.email, process.env.ALLOWED_EMAILS)) {
+    return {
+      session: null,
+      error: NextResponse.json({ error: "This Google account is not allowed to use this app" }, { status: 403 }),
+    };
   }
   if (session.error) {
     return { session: null, error: NextResponse.json({ error: session.error }, { status: 401 }) };

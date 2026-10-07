@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import type { JWT } from "next-auth/jwt";
+import { isEmailAllowed } from "@/lib/allowed-email";
 
 const GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
@@ -9,13 +10,13 @@ const DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
 // This app only ever touches calendarId "primary" events, never calendar
 // list/settings, so calendar.events is the narrowest scope that covers
 // create/update/delete/read — same "narrowest available" reasoning as
-// GMAIL_COMPOSE_SCOPE below. See JOURNAL.md 2026-08-10.
+// GMAIL_COMPOSE_SCOPE below.
 const CALENDAR_EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 // Narrowest scope that permits draft creation. Google doesn't offer a
 // draft-only grant — gmail.compose technically also permits sending drafts
 // via the API — so "never sends" is an app-code guarantee (createDraftReply
 // in lib/google/gmail.ts only ever calls drafts.create, never drafts.send /
-// messages.send), not an OAuth-level one. See JOURNAL.md 2026-08-09.
+// messages.send), not an OAuth-level one.
 const GMAIL_COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose";
 
 const TOKEN_REFRESH_SKEW_MS = 60_000;
@@ -69,6 +70,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    // Single-owner app: refuse sign-in for any account not on ALLOWED_EMAILS (when it is set).
+    async signIn({ user, profile }) {
+      return isEmailAllowed(user.email ?? profile?.email, process.env.ALLOWED_EMAILS);
+    },
     async jwt({ token, account }) {
       if (account) {
         token.accessToken = account.access_token;

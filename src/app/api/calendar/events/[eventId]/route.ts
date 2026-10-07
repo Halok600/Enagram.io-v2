@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireSession } from "@/lib/auth-guard";
 import { updateEvent, deleteEvent } from "@/lib/google/calendar";
-import { triggerResync } from "@/lib/brain/trigger-resync";
-import { isIngestionAvailable } from "@/lib/brain/ingest-tunnel";
+import { reingestCalendar } from "@/lib/sync/calendar";
 import { friendlyGoogleErrorMessage } from "@/lib/google/friendly-error";
 
 type RouteContext = { params: Promise<{ eventId: string }> };
@@ -25,7 +24,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       location,
       allDay,
     });
-    triggerResync(new URL(req.url).origin, isIngestionAvailable(), req.headers.get("cookie"));
+    await reingestCalendar(session.accessToken, session.user?.email ?? "");
     return NextResponse.json({ event });
   } catch (err) {
     console.error("Calendar event update failed", err);
@@ -44,7 +43,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
   try {
     await deleteEvent(session.accessToken, eventId);
-    triggerResync(new URL(req.url).origin, isIngestionAvailable(), req.headers.get("cookie"));
+    await reingestCalendar(session.accessToken, session.user?.email ?? "");
     return NextResponse.json({ status: "deleted" });
   } catch (err) {
     console.error("Calendar event delete failed", err);
