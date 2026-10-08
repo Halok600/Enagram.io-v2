@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DB_PROBLEM_MESSAGES, MISSING_DATABASE_URL_MESSAGE, describeDbError } from "./db-errors.ts";
+import {
+  DB_PROBLEM_MESSAGES,
+  HEALTH_UNREACHABLE_MESSAGE,
+  MISSING_DATABASE_URL_MESSAGE,
+  dbProblemMessage,
+  describeDbError,
+} from "./db-errors.ts";
 
 test("Supabase's 'tenant/user not found' means the project is paused", () => {
   const render = new Error("Cannot connect to database: (ENOTFOUND) tenant/user postgres.abcdef not found.");
@@ -55,4 +61,13 @@ test("a cause or AggregateError member decides the kind when the outer error is 
 
 test("the not-configured message is shared with the store", () => {
   assert.equal(describeDbError(new Error(MISSING_DATABASE_URL_MESSAGE)).kind, "not_configured");
+});
+
+test("dbProblemMessage maps known reasons and falls back to the generic message otherwise", () => {
+  assert.equal(dbProblemMessage("paused"), DB_PROBLEM_MESSAGES.paused);
+  assert.equal(dbProblemMessage("something_new"), DB_PROBLEM_MESSAGES.unknown);
+  assert.equal(dbProblemMessage(undefined), DB_PROBLEM_MESSAGES.unknown);
+  assert.equal(dbProblemMessage("toString"), DB_PROBLEM_MESSAGES.unknown);
+  assert.ok(HEALTH_UNREACHABLE_MESSAGE.length > 20);
+  assert.ok(!HEALTH_UNREACHABLE_MESSAGE.includes("DATABASE_URL"));
 });

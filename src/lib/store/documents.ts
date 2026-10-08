@@ -109,29 +109,32 @@ export async function deleteCalendarExcept(db: Db, keepIds: string[]): Promise<n
 
 export type PendingEmbedding = { id: string; hash: string; text: string };
 
-export async function pendingEmbeddings(db: Db, limit: number): Promise<PendingEmbedding[]> {
+/** `excludeIds` lets a caller skip rows it already failed on, so a bad row cannot starve the rest. */
+export async function pendingEmbeddings(db: Db, limit: number, excludeIds: string[] = []): Promise<PendingEmbedding[]> {
   const rows = await db.query<{ id: string; content_hash: string; title: string; body: string }>(
     `select id, content_hash, title, left(body, $2::int) as body
-       from enagram_documents where embedding is null
+       from enagram_documents where embedding is null and not (id = any($3::text[]))
       order by updated_at desc, id limit $1::int`,
-    [limit, EMBED_TEXT_CHARS],
+    [limit, EMBED_TEXT_CHARS, excludeIds],
   );
   return rows.map((r) => ({ id: r.id, hash: r.content_hash, text: embeddingText(r.title, r.body) }));
 }
 
-/** Only writes when the row still has the hash the embedding was computed from. */
+/** Only writes when the row still has the hash the embedding was computed from. Returns the rows written. */
 export async function setEmbeddings(
   db: Db,
   items: { id: string; hash: string; embedding: number[] }[],
-): Promise<void> {
-  if (items.length === 0) return;
+): Promise<number> {
+  if (items.length === 0) return 0;
   const payload = items.map((i) => ({ id: i.id, hash: i.hash, embedding: `[${i.embedding.join(",")}]` }));
-  await db.query(
+  const written = await db.query(
     `update enagram_documents d set embedding = r.embedding::vector
        from jsonb_to_recordset($1::jsonb) as r(id text, hash text, embedding text)
-      where d.id = r.id and d.content_hash = r.hash`,
+      where d.id = r.id and d.content_hash = r.hash
+      returning d.id`,
     [JSON.stringify(payload)],
   );
+  return written.length;
 }
 
 export async function countPending(db: Db): Promise<number> {

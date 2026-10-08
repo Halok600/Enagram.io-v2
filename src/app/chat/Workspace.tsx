@@ -88,7 +88,9 @@ export function Workspace({ email, name }: { email: string; name?: string }) {
   useEffect(() => {
     if (autoSyncedRef.current) return;
     autoSyncedRef.current = true;
-    // Throttled server-side (skipped if a sync finished in the last 10 minutes).
+    // Throttled server-side: the route skips the fetch if a sync finished in the last 10 minutes
+    // (AUTO_SYNC_MIN_INTERVAL_MS in lib/sync/throttle.ts). Only `auto` requests are throttled;
+    // the SyncButton's manual "Sync now" always runs.
     runFullSync({ auto: true })
       .then((result) => console.log("Auto-sync on load:", result))
       .catch((err) => console.error("Auto-sync on load failed:", err));

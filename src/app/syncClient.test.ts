@@ -72,6 +72,17 @@ test("it never loops forever", async () => {
   const responses = [{ body: progress({ documents: 5, remaining: 5 }) }];
   for (let i = 0; i < 10; i++) responses.push({ body: progress({ phase: "embed", documents: 5, embedded: 1, remaining: 5 }) });
   const { fetchFn, bodies } = scriptedFetch(responses);
-  await runFullSync({ fetchFn, maxRounds: 3 });
+  const result = await runFullSync({ fetchFn, maxRounds: 3 });
   assert.equal(bodies.length, 4); // 1 fetch + 3 embed rounds
+  assert.equal(result.stalled, true, "rounds ran out while work was still left, so indexing is incomplete");
+  assert.equal(result.remaining, 5);
+});
+
+test("finishing exactly as the last round ends is not a stall", async () => {
+  const { fetchFn } = scriptedFetch([
+    { body: progress({ documents: 5, remaining: 5 }) },
+    { body: progress({ phase: "embed", documents: 5, embedded: 5, remaining: 0 }) },
+  ]);
+  const result = await runFullSync({ fetchFn, maxRounds: 1 });
+  assert.equal(result.stalled, false);
 });

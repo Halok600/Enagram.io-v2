@@ -21,7 +21,9 @@ means and the one fix.
      app reads one shared database, so once the OAuth app is published any Google
      account could otherwise sign in and read your mail through the chat.
    - NextAuth's "AccessDenied" page after signing in → you used a Google account that is
-     not listed in `ALLOWED_EMAILS`. Sign in with the owner account.
+     not listed in `ALLOWED_EMAILS`. Sign in with the owner account. `ALLOWED_EMAILS` is
+     set in Vercel; unset = unrestricted; a value with no valid entries (for example `,`)
+     = nobody can sign in.
    - A red banner at the top of the chat → read it; it names the problem and the fix.
 
 3. **Press Sync now.** Expect "N email(s) + N file(s) + N event(s) → N document(s)".
@@ -29,7 +31,7 @@ means and the one fix.
    - "Search by meaning is still catching up" → the embedding service is busy;
      keyword search already works; press Sync again in a minute.
 
-4. **Ask two questions:** "Update me for the TCS mail?" and "What's on my calendar
+4. **Ask two questions:** "What was the last email about an interview?" and "What's on my calendar
    this week?" Each should answer within ~30 seconds with sources.
    - If an answer says it ran out of time, ask a narrower question (name the sender
      or subject).

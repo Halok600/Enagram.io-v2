@@ -9,6 +9,17 @@ export const DB_PROBLEM_MESSAGES: Record<DbProblemKind, string> = {
   unknown: "The database returned an unexpected error. Check the Vercel logs.",
 };
 
+/** Shown when /api/health itself cannot be reached, which says nothing about DATABASE_URL. */
+export const HEALTH_UNREACHABLE_MESSAGE =
+  "Could not reach the app's health check, so the database status is unknown. Check your connection and reload.";
+
+/** Maps /api/health's `reason` to text; an unknown or missing reason gets the generic message, never nothing. */
+export function dbProblemMessage(reason: unknown): string {
+  return typeof reason === "string" && Object.hasOwn(DB_PROBLEM_MESSAGES, reason)
+    ? DB_PROBLEM_MESSAGES[reason as DbProblemKind]
+    : DB_PROBLEM_MESSAGES.unknown;
+}
+
 /** Thrown by the store when DATABASE_URL is unset; describeDbError matches on it. */
 export const MISSING_DATABASE_URL_MESSAGE = "Missing required env var DATABASE_URL";
 

@@ -58,7 +58,7 @@ export function SyncButton() {
           </p>
           {result.stalled && (
             <p className="text-xs leading-snug text-[var(--danger)]">
-              ⚠ Search by meaning is still catching up (the embedding service is busy). Keyword search
+              ⚠ Search by meaning is still catching up (some documents are not indexed yet). Keyword search
               already works. Press Sync again in a minute.
             </p>
           )}

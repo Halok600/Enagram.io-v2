@@ -19,7 +19,7 @@ jobs:
           APP_URL: ${{ vars.APP_URL }}
         run: |
           if [ -z "$APP_URL" ]; then
-            echo "::notice::Set the repository variable APP_URL (e.g. https://enagram-io.vercel.app) to enable the heartbeat"
+            echo "::notice::APP_URL is not set, so this heartbeat is NOT checking anything. Set the repository variable APP_URL (e.g. https://enagram-io.vercel.app) to enable it."
             exit 0
           fi
-          curl --fail --silent --show-error --max-time 60 "$APP_URL/api/health"
+          curl --fail --silent --show-error --retry 2 --retry-delay 10 --max-time 60 "${APP_URL%/}/api/health"

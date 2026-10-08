@@ -25,7 +25,8 @@ export type FullSyncResult = {
  * One fetch request, then embed requests while anything is left. The server does
  * about 40s of embedding per request (Vercel's limit is 60s), so a first full
  * sync takes a few rounds. Stops early if a round embeds nothing (e.g. the
- * embedding service is rate-limited) rather than spinning.
+ * embedding service is rate-limited) rather than spinning. `stalled` means indexing is
+ * incomplete when it stops: either no progress, or maxRounds ran out with work still left.
  */
 export async function runFullSync(
   options: {
@@ -68,10 +69,8 @@ export async function runFullSync(
     result.embedded += progress.embedded;
     result.remaining = progress.remaining;
     result.documents = progress.documents;
-    if (progress.embedded === 0) {
-      result.stalled = result.remaining > 0;
-      break;
-    }
+    if (progress.embedded === 0) break;
   }
+  result.stalled = result.remaining > 0;
   return result;
 }

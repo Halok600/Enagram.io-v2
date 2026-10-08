@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { BrainDocument } from "../brain/types.ts";
-import { createTestDb, unitVector } from "../store/test-db.ts";
+import { createTestDb, makeDoc, unitVector } from "../store/test-db.ts";
 import { applySchema } from "../store/schema.ts";
-import { countDocuments } from "../store/documents.ts";
+import type { Db } from "../store/db.ts";
+import { countDocuments, countPending, upsertDocuments } from "../store/documents.ts";
 import { relatedTo, replaceLinks } from "../store/links.ts";
 import { getMeta } from "../store/meta.ts";
 import { runEmbedPhase, runFetchPhase, type FetchedDocuments, type SyncDeps } from "./engine.ts";
@@ -169,4 +170,183 @@ test("an embedding failure never throws; documents stay pending for the next cal
   } finally {
     console.error = original;
   }
+});
+
+/** Runs `fn` with console.error muted, so expected failure logs do not pollute the test output. */
+async function quietly<T>(fn: () => Promise<T>): Promise<T> {
+  const original = console.error;
+  console.error = () => {};
+  try {
+    return await fn();
+  } finally {
+    console.error = original;
+  }
+}
+
+const stored = (db: Db) =>
+  db.query<{ id: string }>(`select id from enagram_documents order by id`).then((rows) => rows.map((r) => r.id));
+
+test("a throwing fetch leaves stored data and the last-sync time untouched", async () => {
+  const { db, deps } = await setup({ current: gmailOnly(2) }, { now: () => 1000 });
+  await runFetchPhase(deps);
+  const failing: SyncDeps = {
+    ...deps,
+    now: () => 9999,
+    fetchDocuments: async () => {
+      throw new Error("google down");
+    },
+  };
+  await assert.rejects(runFetchPhase(failing), /google down/);
+  assert.deepEqual(await stored(db), ["gmail:0", "gmail:1"]);
+  assert.equal(await getMeta(db, "last_synced_at"), "1000");
+});
+
+test("a participants-only change relinks the documents", async () => {
+  const fetched = {
+    current: {
+      gmail: [bd("gmail:1", "gmail", { participants: ["a@x.com"] })],
+      drive: [],
+      calendar: [bd("calendar:a", "calendar", { participants: ["b@x.com"] })],
+    },
+  };
+  const { db, deps } = await setup(fetched);
+  await runFetchPhase(deps);
+  assert.equal((await relatedTo(db, "gmail:1")).count, 0);
+
+  fetched.current = {
+    ...fetched.current,
+    calendar: [bd("calendar:a", "calendar", { participants: ["b@x.com", "a@x.com"] })], // only participants differ
+  };
+  const again = await runFetchPhase(deps);
+  assert.equal(again.changed, 1);
+  assert.deepEqual((await relatedTo(db, "gmail:1")).results.map((r) => r.slug), ["calendar:a"]);
+});
+
+test("deleting a calendar document in Google also removes its links", async () => {
+  const fetched = {
+    current: {
+      gmail: [bd("gmail:1", "gmail", { participants: ["a@x.com"] })],
+      drive: [],
+      calendar: [bd("calendar:a", "calendar", { participants: ["a@x.com"] })],
+    },
+  };
+  const { db, deps } = await setup(fetched);
+  await runFetchPhase(deps);
+  assert.equal((await relatedTo(db, "gmail:1")).count, 1);
+
+  fetched.current = { ...fetched.current, calendar: [] };
+  await runFetchPhase(deps);
+  assert.equal((await relatedTo(db, "gmail:1")).count, 0);
+  const [{ n }] = await db.query<{ n: number }>(`select count(*)::int as n from enagram_links`);
+  assert.equal(n, 0);
+});
+
+test("an embedder returning fewer vectors than requested stops cleanly and writes nothing", async () => {
+  await quietly(async () => {
+    const { deps } = await setup(
+      { current: gmailOnly(3) },
+      { embedDocuments: async (texts) => texts.slice(1).map(() => unitVector(0)) },
+    );
+    await runFetchPhase(deps);
+    const progress = await runEmbedPhase(deps, 40_000, 3);
+    assert.equal(progress.embedded, 0);
+    assert.equal(progress.remaining, 3);
+  });
+});
+
+test("a failure part-way through keeps the batches already embedded", async () => {
+  await quietly(async () => {
+    let calls = 0;
+    const { deps } = await setup(
+      { current: gmailOnly(5) },
+      {
+        embedDocuments: async (texts) => {
+          if (++calls === 2) throw new Error("rate limited");
+          return texts.map(() => unitVector(0));
+        },
+      },
+    );
+    await runFetchPhase(deps);
+    const progress = await runEmbedPhase(deps, 40_000, 2);
+    assert.equal(progress.embedded, 2);
+    assert.equal(progress.remaining, 3);
+  });
+});
+
+test("a malformed vector skips only that document; the rest of the batch is written", async () => {
+  await quietly(async () => {
+    const withValue = (index: number, value: number) => Object.assign(unitVector(0), { [index]: value });
+    const malformed = [new Array<number>(10).fill(0), withValue(5, Number.NaN), withValue(5, Infinity)];
+    let firstBatch = true;
+    const { db, deps } = await setup(
+      { current: gmailOnly(4) },
+      {
+        embedDocuments: async (texts) => {
+          const vectors = texts.map((_, i) => (firstBatch && i < malformed.length ? malformed[i] : unitVector(0)));
+          firstBatch = false;
+          return vectors;
+        },
+      },
+    );
+    await runFetchPhase(deps);
+    const progress = await runEmbedPhase(deps, 40_000, 4);
+    // the first batch has three malformed vectors and one good one; the bad ones are skipped, not retried
+    assert.equal(progress.embedded, 1);
+    assert.equal(progress.remaining, 3);
+    assert.equal(await countPending(db), 3);
+  });
+});
+
+test("a database error while storing embeddings does not escape the embed phase", async () => {
+  await quietly(async () => {
+    const { db, deps } = await setup({ current: gmailOnly(3) });
+    await runFetchPhase(deps);
+    const failingWrites: Db = {
+      query: async (text, params) => {
+        if (text.includes("set embedding")) throw new Error("invalid input syntax for type vector");
+        return db.query(text, params);
+      },
+      transaction: (fn) => db.transaction(fn),
+    };
+    const progress = await runEmbedPhase({ ...deps, db: failingWrites }, 40_000, 2);
+    assert.equal(progress.embedded, 0);
+    assert.equal(progress.remaining, 3);
+  });
+});
+
+test("embedded counts only rows actually written (a document edited mid-embed is not counted)", async () => {
+  const later: { db?: Db } = {};
+  let clock = 0; // one batch exhausts the budget, so only that batch is attempted
+  const { db, deps } = await setup(
+    { current: gmailOnly(2) },
+    {
+      now: () => clock,
+      embedDocuments: async (texts) => {
+        // gmail:0 changes while its embedding is being computed
+        await upsertDocuments(later.db!, [makeDoc({ id: "gmail:0", body: "edited meanwhile" })]);
+        clock += 50_000;
+        return texts.map(() => unitVector(0));
+      },
+    },
+  );
+  later.db = db;
+  await runFetchPhase(deps);
+  const progress = await runEmbedPhase(deps, 40_000, 2);
+  assert.equal(progress.embedded, 1);
+  assert.equal(progress.remaining, 1);
+});
+
+test("a slow embedding call is abandoned after its timeout; documents stay pending", async () => {
+  await quietly(async () => {
+    const { deps } = await setup(
+      { current: gmailOnly(2) },
+      { embedDocuments: () => new Promise<number[][]>((resolve) => setTimeout(() => resolve([]), 500)) },
+    );
+    await runFetchPhase(deps);
+    const started = Date.now();
+    const progress = await runEmbedPhase(deps, 40_000, 2, 30);
+    assert.ok(Date.now() - started < 400, "returned without waiting for the slow call");
+    assert.equal(progress.embedded, 0);
+    assert.equal(progress.remaining, 2);
+  });
 });

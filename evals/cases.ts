@@ -1,18 +1,17 @@
 /**
- * Eval cases mirroring SPEC.md §5's concrete target queries. Kept as the
- * actual concrete versions already verified manually earlier
- * (e.g. "[X]" → "Nirmit from SkillLayer") so results are directly
- * comparable to that prior manual verification, not just a fresh unrelated
- * check.
+ * Eval cases mirroring the concrete target queries in section 5 of the original assignment
+ * spec (SPEC.md at the repo root; it describes v1, the v2 design is in
+ * docs/superpowers/specs/2026-10-07-enagram-v2-design.md). The queries are the concrete
+ * versions that were verified by hand earlier (the spec's "[X]" placeholder became
+ * "Nirmit from SkillLayer"), so results compare directly with that manual check.
  *
- * Reviewed by an independent subagent which found
- * real gaps, now fixed: the recency-based Tier1 #2 query wasn't tested at
- * all (see tier1-drive-recency below — added, and its honest limitation
- * documented rather than hidden), the Tier2 #1 query was silently narrowed
- * to one named company (now disclosed instead of silent), a not_found case
- * under-specified which tools were required, and two keyword checks were
- * loose enough to pass on a wrong answer (now require an actual citation
- * link, not just the topic word).
+ * An independent review found gaps that are now fixed:
+ * - the recency-based Tier1 #2 query was not tested (tier1-drive-recency, with its limitation
+ *   documented below);
+ * - the Tier2 #1 query was silently narrowed to one company (now disclosed);
+ * - a not_found case did not say which tools were required;
+ * - two keyword checks could pass on a wrong answer (they now require a citation link, not
+ *   just the topic word).
  */
 
 export type KeywordExpectation = {
@@ -25,9 +24,11 @@ export type NotFoundExpectation = {
   type: "not_found";
 };
 
-/** Distinct from NotFoundExpectation: that's "searched, correctly reported
- * absence"; this is "recognized the question is out of scope entirely and
- * declined" — different phrasing, doesn't require having searched first. */
+/**
+ * Distinct from NotFoundExpectation: that is "searched, correctly reported absence"; this is
+ * "recognized the question is out of scope entirely and declined". The phrasing differs and
+ * no search is required first.
+ */
 export type RefusalExpectation = {
   type: "refusal";
 };

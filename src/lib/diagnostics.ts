@@ -1,3 +1,8 @@
+/** A failure message may quote the connection string (credentials included); never return that. */
+export function redactConnectionStrings(text: string): string {
+  return text.replace(/postgres(?:ql)?:\/\/\S+/gi, "[redacted]");
+}
+
 export type StepTiming = { call: string; ok: boolean; ms: number; error?: string };
 
 /** Runs steps one at a time (so timings do not overlap), recording each failure instead of throwing. */
@@ -16,7 +21,7 @@ export async function timeSteps(
         call: step.call,
         ok: false,
         ms: now() - start,
-        error: err instanceof Error ? err.message : String(err),
+        error: redactConnectionStrings(err instanceof Error ? err.message : String(err)),
       });
     }
   }

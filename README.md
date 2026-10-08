@@ -47,7 +47,7 @@ Browser ── Vercel (Next.js 16) ──┬── Google APIs (Gmail / Drive / 
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini chat model and embeddings |
 | `DATABASE_URL` | Supabase Postgres connection string (the transaction pooler, port 6543) |
 | `CRON_SECRET` | Guards `/api/keepalive`, called daily by Vercel Cron |
-| `ALLOWED_EMAILS` | Comma-separated Google account emails allowed to sign in and call the API (unset = unrestricted). **Set it before publishing the Google OAuth app.** |
+| `ALLOWED_EMAILS` | Comma-separated Google account emails allowed to sign in and call the API. Set it in Vercel; unset = unrestricted; a value with no valid entries (for example `,`) = nobody can sign in. **Set it before publishing the Google OAuth app.** |
 
 ## Develop
 
@@ -56,13 +56,15 @@ nvm use            # Node 24 (.nvmrc)
 npm ci
 npm run dev
 npm test           # node:test; SQL runs against in-process Postgres (PGlite) with pgvector
-npm run smoke      # live check against DATABASE_URL (needs .env.local)
+npm run smoke      # live check against DATABASE_URL (from .env.local or the environment)
 ```
 
 ## Reliability
 
 - `/api/health` is public and runs a real database query; a daily Vercel cron and a 12-hourly
-  GitHub Actions heartbeat call it so the free-tier database never auto-pauses.
+  GitHub Actions heartbeat call it, which helps keep the free-tier database from pausing.
+  GitHub disables scheduled workflows after 60 days of repository inactivity; push a commit
+  or re-enable the workflow in the Actions tab to restore the heartbeat.
 - The UI shows a plain-language banner if the database is paused or unreachable.
 - CI (install, test, typecheck, lint, build) runs on every push and weekly.
 - Before a demo, follow `docs/DEMO_CHECKLIST.md` (about 2 minutes).

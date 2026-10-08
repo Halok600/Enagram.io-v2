@@ -8,8 +8,8 @@ export default async function CalendarPage() {
     redirect("/");
   }
 
-  // No ingestionEnabled prop needed here: the fire-and-forget re-sync
-  // gating (local-dev only, see trigger-resync.ts) happens server-side in
-  // the mutating API routes themselves, not in this client component.
+  // No sync props are needed here: after a calendar create/update/delete, the mutating API
+  // routes call reingestCalendar (src/lib/sync/calendar.ts) server-side, so this client
+  // component only renders the board.
   return <CalendarBoard />;
 }

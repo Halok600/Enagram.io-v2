@@ -13,6 +13,7 @@ import { getMeta } from "@/lib/store/meta";
 import { getDb, getEmbedder } from "@/lib/store/service";
 import { runEmbedPhase, runFetchPhase, type SyncDeps, type SyncProgress } from "@/lib/sync/engine";
 import { GoogleFetchError, syncErrorMessage } from "@/lib/sync/errors";
+import { parseSyncRequest } from "@/lib/sync/request";
 import { shouldAutoSync } from "@/lib/sync/throttle";
 
 // The embed phase budgets ~40s of work; leave the rest for Google fetches and the response.
@@ -24,14 +25,15 @@ export async function POST(req: NextRequest) {
   const { session, error } = await requireSession();
   if (error) return error;
 
-  const body = (await req.json().catch(() => ({}))) as { phase?: string; auto?: boolean };
-  const phase = body.phase === "embed" ? "embed" : "fetch";
+  const parsed = parseSyncRequest(await req.json().catch(() => ({})));
+  if (!parsed) return NextResponse.json({ error: "Unknown sync phase" }, { status: 400 });
+  const { phase, auto } = parsed;
 
   try {
     const db = await getDb();
 
     // Auto-sync on page load: skip if a sync finished recently (protects Gmail's per-user quota).
-    if (phase === "fetch" && body.auto === true) {
+    if (phase === "fetch" && auto) {
       const last = await getMeta(db, "last_synced_at");
       if (!shouldAutoSync(last === null ? null : Number(last), Date.now())) {
         const skipped: SyncProgress = {

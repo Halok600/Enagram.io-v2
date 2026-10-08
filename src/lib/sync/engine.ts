@@ -10,7 +10,9 @@ import {
 } from "../store/documents.ts";
 import { rebuildLinks } from "../store/links.ts";
 import { setMeta } from "../store/meta.ts";
+import { EMBEDDING_DIMENSIONS } from "../store/schema.ts";
 import { toStoredDocument } from "./to-stored.ts";
+import { withTimeout } from "./with-timeout.ts";
 
 export type FetchedDocuments = { gmail: BrainDocument[]; drive: BrainDocument[]; calendar: BrainDocument[] };
 
@@ -37,6 +39,12 @@ export type SyncProgress = {
 /** Leaves ~20s of Vercel's 60s limit for the request itself and the response. */
 export const EMBED_BUDGET_MS = 40_000;
 const EMBED_BATCH_SIZE = 20;
+/** One embedding call; with the 40s budget a call started just inside it still ends before ~55s. */
+export const EMBED_CALL_TIMEOUT_MS = 15_000;
+
+function isUsableVector(vector: unknown): vector is number[] {
+  return Array.isArray(vector) && vector.length === EMBEDDING_DIMENSIONS && vector.every(Number.isFinite);
+}
 
 /**
  * Phase 1: pull from Google, store text, and relink. Cheap and idempotent:
@@ -73,25 +81,33 @@ export async function runFetchPhase(deps: SyncDeps): Promise<SyncProgress> {
 
 /**
  * Phase 2: embed pending documents until the time budget is spent. Failures
- * (e.g. free-tier rate limits) are logged and leave rows pending; keyword
- * search works on them meanwhile, so a failed embedding never hides data.
+ * (e.g. free-tier rate limits, a slow call, a failed write) are logged, stop the
+ * phase with the progress made so far, and leave rows pending; keyword search
+ * works on them meanwhile, so a failed embedding never hides data. A malformed
+ * vector skips just that document.
  */
 export async function runEmbedPhase(
   deps: SyncDeps,
   budgetMs = EMBED_BUDGET_MS,
   batchSize = EMBED_BATCH_SIZE,
+  callTimeoutMs = EMBED_CALL_TIMEOUT_MS,
 ): Promise<SyncProgress> {
   const now = deps.now ?? Date.now;
   const start = now();
   let embedded = 0;
+  const skipped = new Set<string>(); // got a malformed vector; left pending, not retried this call
 
   while (now() - start < budgetMs) {
-    const batch = await pendingEmbeddings(deps.db, batchSize);
+    const batch = await pendingEmbeddings(deps.db, batchSize, [...skipped]);
     if (batch.length === 0) break;
 
     let vectors: number[][];
     try {
-      vectors = await deps.embedDocuments(batch.map((b) => b.text));
+      vectors = await withTimeout(
+        Promise.resolve().then(() => deps.embedDocuments(batch.map((b) => b.text))),
+        callTimeoutMs,
+        "Embedding call",
+      );
     } catch (err) {
       console.error("Embedding batch failed; documents stay pending", err);
       break;
@@ -101,11 +117,22 @@ export async function runEmbedPhase(
       break;
     }
 
-    await setEmbeddings(
-      deps.db,
-      batch.map((b, i) => ({ id: b.id, hash: b.hash, embedding: vectors[i] })),
-    );
-    embedded += batch.length;
+    const items = [];
+    for (const [i, b] of batch.entries()) {
+      if (isUsableVector(vectors[i])) {
+        items.push({ id: b.id, hash: b.hash, embedding: vectors[i] });
+      } else {
+        console.error(`Embedder returned an unusable vector for ${b.id}; skipping it`);
+        skipped.add(b.id);
+      }
+    }
+
+    try {
+      embedded += await setEmbeddings(deps.db, items);
+    } catch (err) {
+      console.error("Storing embeddings failed; documents stay pending", err);
+      break;
+    }
   }
 
   return {
