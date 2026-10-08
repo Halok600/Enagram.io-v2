@@ -21,7 +21,7 @@ test("after the budget is spent mid-turn, the SDK sends the next step with tools
         return {
           stream: simulateReadableStream({
             chunks: [
-              { type: "tool-call", toolCallId: "c1", toolName: "search", input: '{"q":"tcs"}' },
+              { type: "tool-call", toolCallId: "c1", toolName: "search", input: '{"q":"acme"}' },
               { type: "finish", finishReason: { unified: "tool-calls", raw: undefined }, usage },
             ],
           }),
@@ -43,7 +43,7 @@ test("after the budget is spent mid-turn, the SDK sends the next step with tools
   const result = streamText({
     model,
     system: "BASE PROMPT",
-    prompt: "Update me for the TCS mail?",
+    prompt: "Update me for the Acme mail?",
     tools: {
       search: tool({
         description: "search",

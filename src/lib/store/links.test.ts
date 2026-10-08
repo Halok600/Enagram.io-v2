@@ -79,8 +79,8 @@ test("rebuildLinks derives links from stored participants and replaces the old o
   const db = await createTestDb();
   await applySchema(db);
   await upsertDocuments(db, [
-    makeDoc({ id: "gmail:1", participants: ["nirmit@x.com", "me@x.com"] }),
-    makeDoc({ id: "calendar:1", source: "calendar", participants: ["nirmit@x.com"] }),
+    makeDoc({ id: "gmail:1", participants: ["priya@x.com", "me@x.com"] }),
+    makeDoc({ id: "calendar:1", source: "calendar", participants: ["priya@x.com"] }),
     makeDoc({ id: "drive:1", source: "drive", participants: ["other@x.com"] }),
   ]);
   await replaceLinks(db, [{ from: "gmail:1", to: "drive:1" }]); // stale link

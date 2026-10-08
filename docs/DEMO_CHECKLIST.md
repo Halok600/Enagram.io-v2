@@ -22,14 +22,15 @@ means and the one fix.
      account could otherwise sign in and read your mail through the chat.
    - NextAuth's "AccessDenied" page after signing in → you used a Google account that is
      not listed in `ALLOWED_EMAILS`. Sign in with the owner account. `ALLOWED_EMAILS` is
-     set in Vercel; unset = unrestricted; a value with no valid entries (for example `,`)
-     = nobody can sign in.
+     set in Vercel; unset or empty = unrestricted; any other value with no valid entries (for
+     example `,` or only spaces) = nobody can sign in.
    - A red banner at the top of the chat → read it; it names the problem and the fix.
 
 3. **Press Sync now.** Expect "N email(s) + N file(s) + N event(s) → N document(s)".
    - An error mentioning quota → Gmail rate-limited you; wait a minute and press again.
-   - "Search by meaning is still catching up" → the embedding service is busy;
-     keyword search already works; press Sync again in a minute.
+   - "Search by meaning is still catching up (some documents are not indexed yet)" → the sync
+     ran out of rounds or the embedding service was slow; keyword search already works;
+     press Sync again in a minute.
 
 4. **Ask two questions:** "What was the last email about an interview?" and "What's on my calendar
    this week?" Each should answer within ~30 seconds with sources.

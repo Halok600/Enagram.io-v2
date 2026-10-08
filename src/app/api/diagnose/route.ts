@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const { error } = await requireSession();
   if (error) return error;
 
-  const query = (req.nextUrl.searchParams.get("q") ?? "TCS NQT selection process").slice(0, 200);
+  const query = (req.nextUrl.searchParams.get("q") ?? "job interview schedule").slice(0, 200);
   const embedder = getEmbedder();
   let queryEmbedding: number[] | null = null;
 

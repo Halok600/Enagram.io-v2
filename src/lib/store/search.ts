@@ -17,7 +17,7 @@ export function rrfFuse(lists: string[][], k = RRF_K): { id: string; score: numb
 
 /**
  * OR, not AND: Postgres's websearch_to_tsquery ANDs every word, so a full
- * sentence like "Update me for the TCS mail which came?" matched zero documents
+ * sentence like "Update me for the Acme mail which came?" matched zero documents
  * (verified 2026-10-07). With OR and the english config (which drops stop words),
  * documents matching more of the rare terms rank higher. Built with `new RegExp`
  * because this project's TS target (ES2017) rejects \p{...} regex literals. Combining marks

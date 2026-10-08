@@ -1,9 +1,9 @@
 /**
  * Eval cases mirroring the concrete target queries in section 5 of the original assignment
- * spec (SPEC.md at the repo root; it describes v1, the v2 design is in
+ * spec (the v1-era assignment brief, not kept in this repo; the v2 design is in
  * docs/superpowers/specs/2026-10-07-enagram-v2-design.md). The queries are the concrete
- * versions that were verified by hand earlier (the spec's "[X]" placeholder became
- * "Nirmit from SkillLayer"), so results compare directly with that manual check.
+ * versions that were verified by hand earlier (the spec's "[X]" placeholder is filled with a
+ * sample name, "Priya from ExampleCo"), so results compare directly with that manual check.
  *
  * An independent review found gaps that are now fixed:
  * - the recency-based Tier1 #2 query was not tested (tier1-drive-recency, with its limitation
@@ -49,7 +49,7 @@ export const EVAL_CASES: EvalCase[] = [
     tier: "tier1",
     query: "Find the email from Stripe about the failed payment.",
     description:
-      "SPEC.md §5 Tier1 #1. Grounding check: no such email exists in the connected inbox — must search, then correctly report not found, not fabricate one.",
+      "Assignment spec §5 Tier1 #1. Grounding check: no such email exists in the connected inbox — must search, then correctly report not found, not fabricate one.",
     expectedTools: ["search_gmail"],
     expectation: { type: "not_found" },
   },
@@ -58,7 +58,7 @@ export const EVAL_CASES: EvalCase[] = [
     tier: "tier1",
     query: "What Drive files have I edited/shared in the last week?",
     description:
-      "SPEC.md §5 Tier1 #2, verbatim. KNOWN ARCHITECTURE LIMITATION (found by independent review, fixed partially, documented honestly rather than hidden): search results only carry a `date` for the top 3 by relevance, not all results, so precise recency ordering isn't always possible. This case checks the model responds with real Drive content or an honest caveat about date coverage — not that it nails exact recency, which the current architecture can't fully guarantee.",
+      "Assignment spec §5 Tier1 #2, verbatim. KNOWN ARCHITECTURE LIMITATION (found by independent review, fixed partially, documented honestly rather than hidden): search results only carry a `date` for the top 3 by relevance, not all results, so precise recency ordering isn't always possible. This case checks the model responds with real Drive content or an honest caveat about date coverage — not that it nails exact recency, which the current architecture can't fully guarantee.",
     expectedTools: ["search_drive"],
     expectation: {
       type: "keywords",
@@ -82,8 +82,8 @@ export const EVAL_CASES: EvalCase[] = [
   {
     id: "tier1-gmail-thread-summary",
     tier: "tier1",
-    query: "Summarize my most recent email thread with Nirmit from SkillLayer",
-    description: "SPEC.md §5 Tier1 #3 — single-source Gmail thread summary with a real citation, not just a topic mention.",
+    query: "Summarize my most recent email thread with Priya from ExampleCo",
+    description: "Assignment spec §5 Tier1 #3 — single-source Gmail thread summary with a real citation, not just a topic mention.",
     expectedTools: ["search_gmail"],
     expectation: {
       type: "keywords",
@@ -94,18 +94,18 @@ export const EVAL_CASES: EvalCase[] = [
     },
   },
   {
-    id: "tier2-skilllayer-status",
+    id: "tier2-exampleco-status",
     tier: "tier2",
     query:
-      "What's my status on the SkillLayer application, and do I have the take-home assignment document in my Drive?",
+      "What's my status on the ExampleCo application, and do I have the take-home assignment document in my Drive?",
     description:
-      "SPEC.md §5 Tier2 #1, DELIBERATELY NARROWED to one named company (disclosed per independent review — SPEC's actual wording, 'what jobs have I applied to... status on each,' is open-ended enumeration across all applications, which this keyword-based harness can't assert against without an LLM judge; that broader case is untested). This case checks the cross-source join specifically: Gmail status + Drive submission file, both cited.",
+      "Assignment spec §5 Tier2 #1, DELIBERATELY NARROWED to one named company (disclosed per independent review — SPEC's actual wording, 'what jobs have I applied to... status on each,' is open-ended enumeration across all applications, which this keyword-based harness can't assert against without an LLM judge; that broader case is untested). This case checks the cross-source join specifically: Gmail status + Drive submission file, both cited.",
     expectedTools: ["search_gmail", "search_drive"],
     expectation: {
       type: "keywords",
       groups: [
         ["shortlist", "mc round", "round 1"],
-        ["take-home", "take home", "takehome", "skilllayer_sde"],
+        ["take-home", "take home", "takehome", "exampleco_sde"],
       ],
     },
   },
@@ -118,7 +118,7 @@ export const EVAL_CASES: EvalCase[] = [
       "mirroring the existing not_found pattern (tier1-stripe-not-found) — deliberately implausible content so " +
       "the case stays reliable regardless of what's actually on the connected calendar. A deeper Tier2 case " +
       "joining Calendar with Gmail/Drive was intentionally NOT added: it would require guessing real calendar " +
-      "content this harness has no way to verify ground truth for, unlike the SkillLayer case which is grounded " +
+      "content this harness has no way to verify ground truth for, unlike the ExampleCo case which is grounded " +
       "in emails already quoted elsewhere in this file.",
     expectedTools: ["search_calendar"],
     expectation: { type: "not_found" },
@@ -128,7 +128,7 @@ export const EVAL_CASES: EvalCase[] = [
     tier: "tier2",
     query: "Did I ever send Priya a contract draft, and did she reply?",
     description:
-      "SPEC.md §5 Tier2 #2. Grounding check: no such exchange exists — must search BOTH sources (not just Gmail) before correctly reporting not found.",
+      "Assignment spec §5 Tier2 #2. Grounding check: no such exchange exists — must search BOTH sources (not just Gmail) before correctly reporting not found.",
     expectedTools: ["search_gmail", "search_drive"],
     expectation: { type: "not_found" },
   },

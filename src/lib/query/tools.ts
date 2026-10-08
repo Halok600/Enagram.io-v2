@@ -78,7 +78,7 @@ export const searchDriveTool = tool({
 export const searchCalendarTool = tool({
   description:
     "Search the user's Google Calendar (already ingested into the brain) for events matching a query. " +
-    "Use natural-language or keyword queries, e.g. 'meeting with Nirmit', 'interview'. Covers roughly " +
+    "Use natural-language or keyword queries, e.g. 'meeting with Priya', 'interview'. Covers roughly " +
     "the past month through the next 3 months of events.",
   inputSchema: z.object({
     query: z.string().describe("What to search for in the user's calendar events"),

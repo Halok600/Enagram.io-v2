@@ -79,9 +79,9 @@ test("a second identical fetch changes nothing and re-embeds nothing", async () 
 test("documents sharing a participant across sources get linked", async () => {
   const fetched = {
     current: {
-      gmail: [bd("gmail:1", "gmail", { participants: ["nirmit@x.com", "me@x.com"] })],
+      gmail: [bd("gmail:1", "gmail", { participants: ["priya@x.com", "me@x.com"] })],
       drive: [],
-      calendar: [bd("calendar:a", "calendar", { participants: ["nirmit@x.com"] })],
+      calendar: [bd("calendar:a", "calendar", { participants: ["priya@x.com"] })],
     },
   };
   const { db, deps } = await setup(fetched);
@@ -93,9 +93,9 @@ test("documents sharing a participant across sources get linked", async () => {
 test("links are rebuilt on every fetch, so a lost or stale rebuild self-heals", async () => {
   const fetched = {
     current: {
-      gmail: [bd("gmail:1", "gmail", { participants: ["nirmit@x.com", "me@x.com"] })],
+      gmail: [bd("gmail:1", "gmail", { participants: ["priya@x.com", "me@x.com"] })],
       drive: [],
-      calendar: [bd("calendar:a", "calendar", { participants: ["nirmit@x.com"] })],
+      calendar: [bd("calendar:a", "calendar", { participants: ["priya@x.com"] })],
     },
   };
   const { db, deps } = await setup(fetched);

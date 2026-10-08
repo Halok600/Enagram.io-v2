@@ -27,7 +27,7 @@ test("timeSteps runs steps in order, timing each, and records failures instead o
 
 test("redactConnectionStrings removes postgres URLs (with credentials) and keeps the rest", () => {
   assert.equal(
-    redactConnectionStrings("connect failed for postgresql://postgres.ref:s3cret@aws-0.pooler.supabase.com:6543/postgres?sslmode=require, retrying"),
+    redactConnectionStrings("connect failed for postgresql://app_user:not-a-real-password@db.example.com:6543/postgres?sslmode=require, retrying"),
     "connect failed for [redacted] retrying",
   );
   assert.equal(redactConnectionStrings("bad url POSTGRES://u:p@h/db and postgres://x@y/z"), "bad url [redacted] and [redacted]");

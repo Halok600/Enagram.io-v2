@@ -11,10 +11,10 @@ async function seeded() {
   const db = await createTestDb();
   await applySchema(db);
   await upsertDocuments(db, [
-    makeDoc({ id: "gmail:1", title: "TCS selection update", body: "TCS talent acquisition status" }),
+    makeDoc({ id: "gmail:1", title: "Acme selection update", body: "Acme talent acquisition status" }),
     makeDoc({ id: "gmail:2", title: "Unrelated newsletter", body: "nothing to see" }),
-    makeDoc({ id: "drive:1", source: "drive", title: "TCS offer letter", body: "TCS offer" }),
-    makeDoc({ id: "calendar:1", source: "calendar", title: "TCS interview", body: "TCS round", eventId: "e1" }),
+    makeDoc({ id: "drive:1", source: "drive", title: "Acme offer letter", body: "Acme offer" }),
+    makeDoc({ id: "calendar:1", source: "calendar", title: "Acme interview", body: "Acme round", eventId: "e1" }),
   ]);
   return db;
 }
@@ -28,9 +28,9 @@ const broken: Db = {
 
 test("each search tool only returns its own source", async () => {
   const brain = createBrain({ db: await seeded(), embedder });
-  assert.deepEqual((await brain.searchGmail("TCS")).map((h) => h.slug), ["gmail:1"]);
-  assert.deepEqual((await brain.searchDrive("TCS")).map((h) => h.slug), ["drive:1"]);
-  const calendar = await brain.searchCalendar("TCS");
+  assert.deepEqual((await brain.searchGmail("Acme")).map((h) => h.slug), ["gmail:1"]);
+  assert.deepEqual((await brain.searchDrive("Acme")).map((h) => h.slug), ["drive:1"]);
+  const calendar = await brain.searchCalendar("Acme");
   assert.deepEqual(calendar.map((h) => h.slug), ["calendar:1"]);
   assert.equal(calendar[0].eventId, "e1");
 });
@@ -51,7 +51,7 @@ test("if embedding the query fails, search still works by keyword", async () => 
       db: await seeded(),
       embedder: { query: async () => Promise.reject(new Error("quota")) },
     });
-    assert.deepEqual((await brain.searchGmail("TCS")).map((h) => h.slug), ["gmail:1"]);
+    assert.deepEqual((await brain.searchGmail("Acme")).map((h) => h.slug), ["gmail:1"]);
   } finally {
     console.error = original;
   }
@@ -63,7 +63,7 @@ test("an unusable query vector (wrong length or non-finite) falls back to keywor
   try {
     for (const bad of [[0.1, 0.2, 0.3], unitVector(0).map(() => Number.NaN), []]) {
       const brain = createBrain({ db: await seeded(), embedder: { query: async () => bad } });
-      assert.deepEqual((await brain.searchGmail("TCS")).map((h) => h.slug), ["gmail:1"]);
+      assert.deepEqual((await brain.searchGmail("Acme")).map((h) => h.slug), ["gmail:1"]);
     }
   } finally {
     console.error = original;

@@ -10,9 +10,9 @@ async function seededDb() {
   await applySchema(db);
   await upsertDocuments(db, [
     makeDoc({
-      id: "gmail:tcs",
-      title: "Update on TCS NQT (All India) Selection Process",
-      body: "TCS Confidential Dear Priyanshu Tiwari, Greetings from TCS Talent Acquisition. Your selection process status is updated.",
+      id: "gmail:acme",
+      title: "Update on your Acme Corp application",
+      body: "Acme Corp Confidential Dear Pat Example, thank you for applying to the Platform Engineer role. Your application status is updated.",
       url: "https://mail.google.com/mail/u/0/#all/t1",
       docDate: "2026-09-25T10:00:00.000Z",
     }),
@@ -31,12 +31,12 @@ async function seededDb() {
       id: "drive:cv",
       source: "drive",
       title: "Resume_2026_APRIL.pdf",
-      body: "Priyanshu Tiwari software engineer projects skills",
+      body: "Pat Example software engineer projects skills",
     }),
     makeDoc({
       id: "calendar:e1",
       source: "calendar",
-      title: "Interview with Nirmit",
+      title: "Interview with Priya",
       body: "When: tomorrow 3pm",
       eventId: "e1",
       docDate: "2026-10-08T09:30:00.000Z",
@@ -52,8 +52,8 @@ test("rrfFuse ranks items found by both lists above items found by one", () => {
 });
 
 test("buildTsQuery ORs the alphanumeric terms, de-duplicated and capped", () => {
-  assert.equal(buildTsQuery("Update me for the TCS mail?"), "update | me | for | the | tcs | mail");
-  assert.equal(buildTsQuery("tcs TCS tcs"), "tcs");
+  assert.equal(buildTsQuery("Update me for the Acme mail?"), "update | me | for | the | acme | mail");
+  assert.equal(buildTsQuery("acme Acme acme"), "acme");
   assert.equal(buildTsQuery("?! ..."), null);
   const many = Array.from({ length: 20 }, (_, i) => `w${i}`).join(" ");
   assert.equal(buildTsQuery(many)?.split(" | ").length, 12);
@@ -63,25 +63,25 @@ test("vectorLiteral formats a pgvector literal", () => {
   assert.equal(vectorLiteral([1, 0.5]), "[1,0.5]");
 });
 
-test("a natural-language question ranks the TCS email first (keyword side alone)", async () => {
+test("a natural-language question ranks the Acme email first (keyword side alone)", async () => {
   const db = await seededDb();
-  for (const question of ["Update me for the TCS mail which came?", "Hi can you tell me my status on TCS mail?"]) {
+  for (const question of ["Update me for the Acme mail which came?", "Hi can you tell me my status on Acme mail?"]) {
     const hits = await searchDocuments(db, { query: question });
-    assert.equal(hits[0].slug, "gmail:tcs", question);
+    assert.equal(hits[0].slug, "gmail:acme", question);
   }
 });
 
 test("a hit carries the fields the chat tools format", async () => {
   const db = await seededDb();
-  const hits = await searchDocuments(db, { query: "TCS selection" });
-  const tcs = hits.find((h) => h.slug === "gmail:tcs")!;
-  assert.equal(tcs.type, "email");
-  assert.equal(tcs.title, "Update on TCS NQT (All India) Selection Process");
-  assert.equal(tcs.url, "https://mail.google.com/mail/u/0/#all/t1");
-  assert.equal(tcs.date, "2026-09-25T10:00:00.000Z");
-  assert.ok(tcs.score > 0);
-  assert.match(tcs.snippet, /TCS/);
-  assert.equal(tcs.snippet.includes("<b>"), false);
+  const hits = await searchDocuments(db, { query: "Acme application" });
+  const acme = hits.find((h) => h.slug === "gmail:acme")!;
+  assert.equal(acme.type, "email");
+  assert.equal(acme.title, "Update on your Acme Corp application");
+  assert.equal(acme.url, "https://mail.google.com/mail/u/0/#all/t1");
+  assert.equal(acme.date, "2026-09-25T10:00:00.000Z");
+  assert.ok(acme.score > 0);
+  assert.match(acme.snippet, /Acme/);
+  assert.equal(acme.snippet.includes("<b>"), false);
 });
 
 test("a plain word finds a file whose name uses underscores", async () => {
@@ -93,9 +93,9 @@ test("a plain word finds a file whose name uses underscores", async () => {
 
 test("the source filter is exact", async () => {
   const db = await seededDb();
-  const gmailOnly = await searchDocuments(db, { query: "Priyanshu", source: "gmail" });
-  assert.deepEqual(gmailOnly.map((h) => h.slug), ["gmail:tcs"]);
-  const driveOnly = await searchDocuments(db, { query: "Priyanshu", source: "drive" });
+  const gmailOnly = await searchDocuments(db, { query: "Pat", source: "gmail" });
+  assert.deepEqual(gmailOnly.map((h) => h.slug), ["gmail:acme"]);
+  const driveOnly = await searchDocuments(db, { query: "Pat", source: "drive" });
   assert.deepEqual(driveOnly.map((h) => h.slug), ["drive:cv"]);
 });
 
@@ -117,10 +117,10 @@ test("vector search finds a document with no keyword overlap, and skips unembedd
 
 test("a document found by both keyword and vector ranks first", async () => {
   const db = await seededDb();
-  await setVector(db, "gmail:tcs", 2);
+  await setVector(db, "gmail:acme", 2);
   await setVector(db, "gmail:promo", 1);
-  const hits = await searchDocuments(db, { query: "TCS", queryEmbedding: unitVector(2), limit: 5 });
-  assert.equal(hits[0].slug, "gmail:tcs");
+  const hits = await searchDocuments(db, { query: "Acme", queryEmbedding: unitVector(2), limit: 5 });
+  assert.equal(hits[0].slug, "gmail:acme");
   assert.ok(hits[0].score > (hits[1]?.score ?? 0));
 });
 
@@ -192,4 +192,7 @@ test("keyword snippets never leak the highlight markers", async () => {
   assert.equal(hits[0].slug, "gmail:quokka");
   assert.ok(hits[0].snippet.includes("quokka"));
   assert.ok(!hits[0].snippet.includes("@@"), hits[0].snippet);
+  // Highlighting with the default <b> tags (i.e. without our unique markers) would put them in the snippet.
+  assert.ok(!hits[0].snippet.includes("<b>"), hits[0].snippet);
+  assert.equal(hits[0].snippet, "quokka tag for emphasis in quokka notes");
 });

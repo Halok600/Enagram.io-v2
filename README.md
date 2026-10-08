@@ -6,10 +6,10 @@ a single answer instead of making you search each one separately.
 
 **Live:** https://enagram-io.vercel.app
 
-This is **v2**. v1 ([Halok600/Enagram.io](https://github.com/Halok600/Enagram.io)) used a
-separate gbrain server on Render plus a Colab notebook for ingestion; v2 keeps every
-feature and replaces that stack with Supabase Postgres + pgvector queried directly from
-Vercel, so there is nothing to start by hand.
+This is **v2**, rebuilt from an earlier version that ran on Render and Colab. That version
+used a separate gbrain server plus a Colab notebook for ingestion; v2 keeps every feature
+and replaces that stack with Supabase Postgres + pgvector queried directly from Vercel, so
+there is nothing to start by hand.
 
 ## What it does
 
@@ -69,6 +69,15 @@ npm run smoke      # live check against DATABASE_URL (from .env.local or the env
 - CI (install, test, typecheck, lint, build) runs on every push and weekly.
 - Before a demo, follow `docs/DEMO_CHECKLIST.md` (about 2 minutes).
 - `/api/diagnose` (signed in) times each layer when something is slow.
+
+## Known limitations
+
+- The chat tools can delete a Google Calendar event or save a preference without asking for
+  confirmation first. Text inside an email or document that the agent reads could therefore
+  try to trigger one of them (prompt injection). Mitigations in place: sign-in is limited to
+  an allowlist (`ALLOWED_EMAILS`) and the data API routes require the owner's session; Gmail replies are saved
+  as drafts and never sent; created events never invite anyone. An approval step for
+  destructive tool calls is planned hardening.
 
 ## License
 

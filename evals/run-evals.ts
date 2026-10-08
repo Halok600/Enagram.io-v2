@@ -1,6 +1,6 @@
 /**
- * Real eval loop for the Enagram.io assignment (harness-engineering bonus, section 5 of
- * SPEC.md). Runs the actual production tool set and system prompt (shared via
+ * Real eval loop for the Enagram.io assignment (harness-engineering bonus, section 5 of the
+ * original assignment spec; the v2 design is docs/superpowers/specs/2026-10-07-enagram-v2-design.md). Runs the actual production tool set and system prompt (shared via
  * src/lib/query/config.ts, not a hand-copied duplicate) against the live Supabase database,
  * so a pass here means the real system behaves correctly, not a mock.
  * Run with: `npm run eval` (or `bun run evals/run-evals.ts`).

@@ -113,7 +113,7 @@ Hybrid, then merged with Reciprocal Rank Fusion (k = 60):
    OR-ed into a `to_tsquery('english', 't1 | t2 | ...')`, matched against `fts`,
    top 30 by `ts_rank_cd`. OR, not AND: verified on 2026-10-07 that
    `websearch_to_tsquery` ANDs every word, so the full sentence "Update me for the
-   TCS mail which came?" matched zero documents, while the OR query ranks the TCS
+   Acme mail which came?" matched zero documents, while the OR query ranks the Acme
    email first. The `english` configuration drops stop words and stems; the `fts`
    expression turns `_ . / -` into spaces first, because otherwise a file named
    `Resume_2026_APRIL.pdf` is one token that a search for "resume" misses (also
@@ -125,7 +125,7 @@ Hybrid, then merged with Reciprocal Rank Fusion (k = 60):
    the tools already format. Snippet is `ts_headline` around the match when the
    keyword side matched, else the first ~400 characters.
 
-Why hybrid: an exact token like "TCS" must outrank semantically-similar
+Why hybrid: an exact token like "Acme" must outrank semantically-similar
 newsletters, which is what failed in v1 on 2026-10-07. Documents still missing
 an embedding remain findable by keyword, so a failed embedding never hides data.
 Because url/date/eventId are columns, v1's per-hit `get_page` round-trips
@@ -205,7 +205,7 @@ diagnostics.
   real `DATABASE_URL`, using a throwaway `enagram_smoke_` id prefix.
 - Existing v1 tests that survive (Gmail backoff, tool budget, cron auth) are ported.
 - Verification before any success claim: `npm test`, `tsc --noEmit`, `eslint`,
-  `next build`, then a live check after deploy (sync, then the TCS question).
+  `next build`, then a live check after deploy (sync, then the Acme question).
 
 ## 11. Cutover and rollback
 
@@ -214,7 +214,7 @@ diagnostics.
    Co-Authored-By or generated-with lines, now or later.
 2. In the existing Vercel project: Settings → Git → connect the v2 repo; add
    `DATABASE_URL`; redeploy. Same URL, no Google OAuth changes.
-3. Press Sync now until complete; verify chat (TCS question, calendar, preference).
+3. Press Sync now until complete; verify chat (Acme question, calendar, preference).
 4. Make v1 private; update the portfolio's Enagram links to v2.
 5. Shut down Render, Colab and ngrok at leisure.
 
@@ -290,7 +290,7 @@ v2 is not reported done until all of these have been observed, not assumed:
    existing URL.
 3. `/api/health` on the live URL returns `db: "ok"`.
 4. A full sync completed on the live site (the user signs in; counts reported).
-5. The TCS question and one calendar question were answered on the live site within
+5. The Acme question and one calendar question were answered on the live site within
    the 60s limit.
 6. The deploy worked from the repo alone: no step depends on a laptop, notebook or
    locally-held file.

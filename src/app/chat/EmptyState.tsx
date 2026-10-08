@@ -5,8 +5,8 @@ import { Mail, HardDrive, CalendarDays, Sparkles } from "lucide-react";
 import { HeroLogo } from "./HeroLogo";
 
 const SUGGESTIONS = [
-  { text: "What's my status on the SkillLayer application?", icon: Sparkles },
-  { text: "Summarize recent emails from Nirmit", icon: Mail },
+  { text: "What's my status on the ExampleCo application?", icon: Sparkles },
+  { text: "Summarize recent emails from Priya", icon: Mail },
   { text: "What Drive files do I have for internships?", icon: HardDrive },
   { text: "What's on my calendar this week?", icon: CalendarDays },
 ];
