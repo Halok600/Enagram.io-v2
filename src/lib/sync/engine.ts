@@ -10,11 +10,17 @@ import {
 } from "../store/documents.ts";
 import { rebuildLinks } from "../store/links.ts";
 import { setMeta } from "../store/meta.ts";
-import { EMBEDDING_DIMENSIONS } from "../store/schema.ts";
+import { isUsableVector } from "../store/vector.ts";
 import { toStoredDocument } from "./to-stored.ts";
 import { withTimeout } from "./with-timeout.ts";
 
-export type FetchedDocuments = { gmail: BrainDocument[]; drive: BrainDocument[]; calendar: BrainDocument[] };
+export type FetchedDocuments = {
+  gmail: BrainDocument[];
+  drive: BrainDocument[];
+  calendar: BrainDocument[];
+  /** The calendar list hit its page cap, so it is NOT a complete window: nothing may be deleted from it. */
+  calendarTruncated?: boolean;
+};
 
 export type SyncDeps = {
   db: Db;
@@ -36,15 +42,14 @@ export type SyncProgress = {
   remaining: number;
 };
 
-/** Leaves ~20s of Vercel's 60s limit for the request itself and the response. */
-export const EMBED_BUDGET_MS = 40_000;
+/**
+ * Counted from the start of the request (cold start and the fetch phase included), so a
+ * call begun just inside it (EMBED_CALL_TIMEOUT_MS) still ends before Vercel's 60s limit.
+ */
+export const EMBED_BUDGET_MS = 35_000;
 const EMBED_BATCH_SIZE = 20;
-/** One embedding call; with the 40s budget a call started just inside it still ends before ~55s. */
+/** One embedding call; with the 35s budget a call started just inside it still ends before ~50s. */
 export const EMBED_CALL_TIMEOUT_MS = 15_000;
-
-function isUsableVector(vector: unknown): vector is number[] {
-  return Array.isArray(vector) && vector.length === EMBEDDING_DIMENSIONS && vector.every(Number.isFinite);
-}
 
 /**
  * Phase 1: pull from Google, store text, and relink. Cheap and idempotent:
@@ -56,11 +61,16 @@ export async function runFetchPhase(deps: SyncDeps): Promise<SyncProgress> {
   const all = [...fetched.gmail, ...fetched.drive, ...fetched.calendar].map(toStoredDocument);
 
   const { changed } = await upsertDocuments(deps.db, all);
-  // The calendar fetch is a complete window, so anything missing from it was deleted in Google.
-  await deleteCalendarExcept(
-    deps.db,
-    fetched.calendar.map((d) => d.id),
-  );
+  if (fetched.calendarTruncated) {
+    // A truncated list is not a complete window: a missing event may just be on a page we never read.
+    console.warn("Calendar list was truncated; skipping deletion of calendar rows for this sync");
+  } else {
+    // The calendar fetch is a complete window, so anything missing from it was deleted in Google.
+    await deleteCalendarExcept(
+      deps.db,
+      fetched.calendar.map((d) => d.id),
+    );
+  }
   // Rebuilt on every fetch, not only when something changed: overlapping syncs can commit an
   // older link set, and a rebuild that fails after the upsert would otherwise never be retried
   // (the next fetch sees changed == 0). One select plus one transaction, so unconditional is cheap.
@@ -91,9 +101,11 @@ export async function runEmbedPhase(
   budgetMs = EMBED_BUDGET_MS,
   batchSize = EMBED_BATCH_SIZE,
   callTimeoutMs = EMBED_CALL_TIMEOUT_MS,
+  /** When the request began; the budget counts from here so cold start and the fetch phase are not free. */
+  startedAt?: number,
 ): Promise<SyncProgress> {
   const now = deps.now ?? Date.now;
-  const start = now();
+  const start = startedAt ?? now();
   let embedded = 0;
   const skipped = new Set<string>(); // got a malformed vector; left pending, not retried this call
 

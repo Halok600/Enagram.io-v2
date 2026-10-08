@@ -4,6 +4,10 @@ import { listEvents, createEvent } from "@/lib/google/calendar";
 import { reingestCalendar } from "@/lib/sync/calendar";
 import { friendlyGoogleErrorMessage } from "@/lib/google/friendly-error";
 
+// POST awaits createEvent plus reingestCalendar (up to ~33s); a 504 after the
+// create would make a retry create a duplicate, so allow the full minute.
+export const maxDuration = 60;
+
 /** Lists events for whatever month/week the /calendar page currently has displayed. */
 export async function GET(req: NextRequest) {
   const { session, error } = await requireSession();

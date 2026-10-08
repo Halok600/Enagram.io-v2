@@ -47,7 +47,7 @@ Browser ── Vercel (Next.js 16) ──┬── Google APIs (Gmail / Drive / 
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini chat model and embeddings |
 | `DATABASE_URL` | Supabase Postgres connection string (the transaction pooler, port 6543) |
 | `CRON_SECRET` | Guards `/api/keepalive`, called daily by Vercel Cron |
-| `ALLOWED_EMAILS` | Comma-separated Google account emails allowed to sign in and call the API. Set it in Vercel; unset = unrestricted; a value with no valid entries (for example `,`) = nobody can sign in. **Set it before publishing the Google OAuth app.** |
+| `ALLOWED_EMAILS` | Comma-separated Google account emails allowed to sign in and call the API. Set it in Vercel; unset or empty = unrestricted; any other value with no valid entries (for example `,` or only spaces) = nobody can sign in. **Set it before publishing the Google OAuth app.** |
 
 ## Develop
 

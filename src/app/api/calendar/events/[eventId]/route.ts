@@ -4,6 +4,9 @@ import { updateEvent, deleteEvent } from "@/lib/google/calendar";
 import { reingestCalendar } from "@/lib/sync/calendar";
 import { friendlyGoogleErrorMessage } from "@/lib/google/friendly-error";
 
+// PATCH/DELETE await reingestCalendar (up to ~33s) after the Google write.
+export const maxDuration = 60;
+
 type RouteContext = { params: Promise<{ eventId: string }> };
 
 export async function PATCH(req: NextRequest, { params }: RouteContext) {

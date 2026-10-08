@@ -4,6 +4,8 @@ import { checkHealth } from "@/lib/store/health";
 import { getDb } from "@/lib/store/service";
 
 export const dynamic = "force-dynamic";
+// The DB connect_timeout is 15s; leave room for the fallback path.
+export const maxDuration = 30;
 
 /**
  * Public on purpose: uptime checks, the GitHub heartbeat and the in-app banner

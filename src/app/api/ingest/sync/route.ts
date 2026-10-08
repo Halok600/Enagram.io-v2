@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireSession } from "@/lib/auth-guard";
 import { listRecentMessages } from "@/lib/google/gmail";
 import { listRecentFiles } from "@/lib/google/drive";
-import { listEvents } from "@/lib/google/calendar";
+import { listEventsWindow } from "@/lib/google/calendar";
 import {
   calendarEventToBrainDocument,
   driveFileToBrainDocument,
@@ -12,16 +12,21 @@ import { countDocuments, countPending } from "@/lib/store/documents";
 import { getMeta } from "@/lib/store/meta";
 import { getDb, getEmbedder } from "@/lib/store/service";
 import { runEmbedPhase, runFetchPhase, type SyncDeps, type SyncProgress } from "@/lib/sync/engine";
-import { GoogleFetchError, syncErrorMessage } from "@/lib/sync/errors";
+import { syncErrorMessage } from "@/lib/sync/errors";
+import { guardGoogleFetch } from "@/lib/sync/google-fetch";
 import { parseSyncRequest } from "@/lib/sync/request";
 import { shouldAutoSync } from "@/lib/sync/throttle";
 
-// The embed phase budgets ~40s of work; leave the rest for Google fetches and the response.
+// The embed phase stops starting new work ~35s after the request began; the rest is for
+// one final embedding call and the response.
 export const maxDuration = 60;
 
 const DEFAULT_MAX_PER_SOURCE = 100;
+// Under maxDuration with room left for the upsert, relink and response.
+const GOOGLE_FETCH_TIMEOUT_MS = 40_000;
 
 export async function POST(req: NextRequest) {
+  const requestStart = Date.now();
   const { session, error } = await requireSession();
   if (error) return error;
 
@@ -56,32 +61,33 @@ export async function POST(req: NextRequest) {
       embedDocuments: (texts) => embedder.documents(texts),
       fetchDocuments: async () => {
         // SAFETY CONTRACT: the calendar array returned here MUST be the complete
-        // result of a successful fetch. If any Google source fails, the error must
-        // propagate (the Promise.all rejects) and must never be turned into an
-        // empty list: the engine deletes calendar rows that are missing from the
-        // fetched window, so an empty window would delete every calendar row.
-        // The failure is re-thrown tagged as a GoogleFetchError (so it is not
-        // mistaken for a database problem); it still propagates. Never return,
-        // swallow or add per-source fallbacks here.
-        let messages, files, events;
-        try {
-          [messages, files, events] = await Promise.all([
-            listRecentMessages(session.accessToken, DEFAULT_MAX_PER_SOURCE),
-            listRecentFiles(session.accessToken, DEFAULT_MAX_PER_SOURCE),
-            listEvents(session.accessToken),
-          ]);
-        } catch (err) {
-          throw new GoogleFetchError(err);
-        }
+        // result of a successful fetch. If any Google source fails or the fetch
+        // times out, the error must propagate (guardGoogleFetch rejects) and must
+        // never be turned into an empty list: the engine deletes calendar rows that
+        // are missing from the fetched window, so an empty window would delete every
+        // calendar row. A list cut short by the page cap is flagged `calendarTruncated`
+        // so the engine skips that deletion. guardGoogleFetch tags the failure as a
+        // GoogleFetchError (so it is not mistaken for a database problem); it still
+        // propagates. Never return, swallow or add per-source fallbacks here.
+        const [messages, files, cal] = await guardGoogleFetch(
+          () =>
+            Promise.all([
+              listRecentMessages(session.accessToken, DEFAULT_MAX_PER_SOURCE),
+              listRecentFiles(session.accessToken, DEFAULT_MAX_PER_SOURCE),
+              listEventsWindow(session.accessToken),
+            ]),
+          GOOGLE_FETCH_TIMEOUT_MS,
+        );
         return {
           gmail: messages.map(gmailMessageToBrainDocument),
           drive: files.map(driveFileToBrainDocument),
-          calendar: events.map(calendarEventToBrainDocument),
+          calendar: cal.events.map(calendarEventToBrainDocument),
+          calendarTruncated: cal.truncated,
         };
       },
     };
 
-    const progress = phase === "embed" ? await runEmbedPhase(deps) : await runFetchPhase(deps);
+    const progress = phase === "embed" ? await runEmbedPhase(deps, undefined, undefined, undefined, requestStart) : await runFetchPhase(deps);
     return NextResponse.json(progress);
   } catch (err) {
     console.error("Ingestion sync failed", err);

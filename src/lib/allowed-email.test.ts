@@ -33,8 +33,10 @@ test("a non-blank allowlist with no usable entries denies everyone (fail closed)
   }
 });
 
-test("whitespace-only allowlist is still blank, so unrestricted", () => {
-  assert.equal(isEmailAllowed("anyone@example.com", "   "), true);
+test("a whitespace-only allowlist is a set value with no entries, so it denies everyone", () => {
+  for (const raw of ["   ", " ", "\t", "\n"]) {
+    assert.equal(isEmailAllowed("anyone@example.com", raw), false, JSON.stringify(raw));
+  }
 });
 
 test("isSignInAllowed refuses an explicitly unverified email, accepts undefined/true", () => {

@@ -4,6 +4,7 @@ import { relatedTo, type RelatedPage } from "./links.ts";
 import { addPreference, listPreferences, removePreference } from "./preferences.ts";
 import { searchDocuments } from "./search.ts";
 import type { BrainSearchHit, SourceKind } from "./types.ts";
+import { isUsableVector } from "./vector.ts";
 
 export type Brain = {
   searchGmail(query: string, limit?: number): Promise<BrainSearchHit[]>;
@@ -30,6 +31,11 @@ export function createBrain(
       // A rate-limited or failing embedding service must not make search fail:
       // keyword search still works.
       console.error("Query embedding failed; using keyword search only", err);
+    }
+    if (queryEmbedding !== null && !isUsableVector(queryEmbedding)) {
+      // A malformed vector would make the vector SQL throw; keyword search still works.
+      console.error("Query embedding was unusable (wrong size or not numbers); using keyword search only");
+      queryEmbedding = null;
     }
     return searchDocuments(deps.db, { query, queryEmbedding, source, limit });
   }

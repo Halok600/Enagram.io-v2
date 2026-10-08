@@ -86,3 +86,26 @@ test("finishing exactly as the last round ends is not a stall", async () => {
   const result = await runFullSync({ fetchFn, maxRounds: 1 });
   assert.equal(result.stalled, false);
 });
+
+test("a non-JSON gateway error (Vercel's HTML 504) becomes a plain message, not a parse error", async () => {
+  const fetchFn = (async () =>
+    ({
+      ok: false,
+      status: 504,
+      statusText: "Gateway Timeout",
+      json: async () => {
+        throw new SyntaxError("Unexpected token 'A', \"An error o\"... is not valid JSON");
+      },
+    }) as unknown as Response) as typeof fetch;
+  await assert.rejects(runFullSync({ fetchFn }), (err: Error) => {
+    assert.match(err.message, /server stopped answering \(504\)/);
+    assert.doesNotMatch(err.message, /Unexpected token/);
+    return true;
+  });
+});
+
+test("a non-JSON success body is reported instead of crashing", async () => {
+  const fetchFn = (async () =>
+    ({ ok: true, status: 200, statusText: "OK", json: async () => { throw new SyntaxError("bad"); } }) as unknown as Response) as typeof fetch;
+  await assert.rejects(runFullSync({ fetchFn }), /unexpected response/i);
+});

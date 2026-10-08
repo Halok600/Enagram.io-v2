@@ -57,6 +57,19 @@ test("if embedding the query fails, search still works by keyword", async () => 
   }
 });
 
+test("an unusable query vector (wrong length or non-finite) falls back to keyword search", async () => {
+  const original = console.error;
+  console.error = () => {};
+  try {
+    for (const bad of [[0.1, 0.2, 0.3], unitVector(0).map(() => Number.NaN), []]) {
+      const brain = createBrain({ db: await seeded(), embedder: { query: async () => bad } });
+      assert.deepEqual((await brain.searchGmail("TCS")).map((h) => h.slug), ["gmail:1"]);
+    }
+  } finally {
+    console.error = original;
+  }
+});
+
 test("findRelated follows stored links", async () => {
   const db = await seeded();
   await replaceLinks(db, [{ from: "gmail:1", to: "drive:1" }]);

@@ -1,4 +1,4 @@
-import { listEvents } from "@/lib/google/calendar";
+import { listEventsWindow } from "@/lib/google/calendar";
 import { calendarEventToBrainDocument } from "@/lib/brain/normalize";
 import { getDb, getEmbedder } from "@/lib/store/service";
 import { runEmbedPhase, runFetchPhase, type SyncDeps } from "./engine";
@@ -24,14 +24,15 @@ export async function reingestCalendar(accessToken: string, ownEmail: string): P
       ownEmail,
       touchLastSynced: false,
       embedDocuments: (texts) => embedder.documents(texts),
-      fetchDocuments: async () => ({
-        gmail: [],
-        drive: [],
+      fetchDocuments: async () => {
         // A timeout rejects like any failed fetch: nothing is deleted from a partial window.
-        calendar: (await withTimeout(listEvents(accessToken), REINGEST_FETCH_TIMEOUT_MS, "Calendar fetch")).map(
-          calendarEventToBrainDocument,
-        ),
-      }),
+        const { events, truncated } = await withTimeout(
+          listEventsWindow(accessToken),
+          REINGEST_FETCH_TIMEOUT_MS,
+          "Calendar fetch",
+        );
+        return { gmail: [], drive: [], calendar: events.map(calendarEventToBrainDocument), calendarTruncated: truncated };
+      },
     };
     await runFetchPhase(deps);
     await runEmbedPhase(deps, REINGEST_EMBED_BUDGET_MS, undefined, REINGEST_EMBED_CALL_TIMEOUT_MS);

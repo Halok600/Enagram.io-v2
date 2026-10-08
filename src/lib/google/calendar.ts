@@ -1,5 +1,6 @@
 import { google, calendar_v3 } from "googleapis";
 import { shiftDateOnly } from "@/lib/calendar-date";
+import { collectPages } from "./paginate";
 
 export type CalendarEvent = {
   id: string;
@@ -49,6 +50,11 @@ function toCalendarEvent(event: calendar_v3.Schema$Event): CalendarEvent {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+function defaultWindow() {
+  const now = Date.now();
+  return { timeMin: new Date(now - 30 * DAY_MS).toISOString(), timeMax: new Date(now + 90 * DAY_MS).toISOString() };
+}
+
 /**
  * Calendar has no natural "most recent N" like Gmail/Drive — events are
  * relative to now, not to when they were created/modified — so this windows
@@ -67,26 +73,55 @@ export async function listEvents(
   accessToken: string,
   opts: { timeMin?: string; timeMax?: string; maxResults?: number } = {},
 ): Promise<CalendarEvent[]> {
+  return (await listEventPage(accessToken, opts)).events;
+}
+
+const SYNC_PAGE_SIZE = 100;
+const SYNC_MAX_PAGES = 5;
+
+/**
+ * The ingestion window across up to 5 pages (500 events). `truncated` means
+ * Google still had more after the cap: the list is partial, so the sync engine
+ * must not treat it as a complete window and delete calendar rows missing from it.
+ * Any page failing rejects the whole call.
+ */
+export async function listEventsWindow(
+  accessToken: string,
+): Promise<{ events: CalendarEvent[]; truncated: boolean }> {
+  // Fixed once: a page token is only valid for the exact query that produced it.
+  const window = defaultWindow();
+  const { items, truncated } = await collectPages(
+    async (pageToken) => {
+      const page = await listEventPage(accessToken, { ...window, maxResults: SYNC_PAGE_SIZE, pageToken });
+      return { items: page.events, nextPageToken: page.nextPageToken };
+    },
+    SYNC_MAX_PAGES,
+  );
+  return { events: items, truncated };
+}
+
+async function listEventPage(
+  accessToken: string,
+  opts: { timeMin?: string; timeMax?: string; maxResults?: number; pageToken?: string },
+): Promise<{ events: CalendarEvent[]; nextPageToken?: string | null }> {
   const calendar = getClient(accessToken);
-  const now = Date.now();
-  const {
-    timeMin = new Date(now - 30 * DAY_MS).toISOString(),
-    timeMax = new Date(now + 90 * DAY_MS).toISOString(),
-    maxResults = 100,
-  } = opts;
+  const fallback = defaultWindow();
+  const { timeMin = fallback.timeMin, timeMax = fallback.timeMax, maxResults = 100, pageToken } = opts;
 
   const res = await calendar.events.list({
     calendarId: "primary",
     timeMin,
     timeMax,
     maxResults,
+    pageToken,
     singleEvents: true,
     orderBy: "startTime",
   });
 
-  return (res.data.items ?? [])
-    .filter((e) => e.status !== "cancelled")
-    .map(toCalendarEvent);
+  return {
+    events: (res.data.items ?? []).filter((e) => e.status !== "cancelled").map(toCalendarEvent),
+    nextPageToken: res.data.nextPageToken,
+  };
 }
 
 /**

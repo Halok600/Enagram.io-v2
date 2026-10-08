@@ -23,7 +23,7 @@ export type FullSyncResult = {
 
 /**
  * One fetch request, then embed requests while anything is left. The server does
- * about 40s of embedding per request (Vercel's limit is 60s), so a first full
+ * about 35s of embedding per request (Vercel's limit is 60s), so a first full
  * sync takes a few rounds. Stops early if a round embeds nothing (e.g. the
  * embedding service is rate-limited) rather than spinning. `stalled` means indexing is
  * incomplete when it stops: either no progress, or maxRounds ran out with work still left.
@@ -45,8 +45,12 @@ export async function runFullSync(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data?.error ?? "Sync failed");
+    // Vercel's gateway answers a timed-out function with an HTML page, not JSON.
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(data?.error ?? `The server stopped answering (${res.status}). Try Sync again.`);
+    }
+    if (!data) throw new Error("The server sent an unexpected response. Try Sync again.");
     return data as SyncProgress;
   }
 

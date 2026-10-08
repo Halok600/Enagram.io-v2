@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import { extractText, getDocumentProxy } from "unpdf";
+import { extractEach } from "./extract-each";
 
 export type DriveFile = {
   id: string;
@@ -12,6 +13,8 @@ export type DriveFile = {
 };
 
 const GOOGLE_DOC_EXPORT_MIME = "text/plain";
+// One slow or hung download must not hold up the whole sync (the Google fetch has its own overall cap).
+const DOWNLOAD_TIMEOUT_MS = 15_000;
 
 function getClient(accessToken: string) {
   const auth = new google.auth.OAuth2();
@@ -19,51 +22,47 @@ function getClient(accessToken: string) {
   return google.drive({ version: "v3", auth });
 }
 
+/** Returns "" for types we deliberately do not read; THROWS when a readable file could not be read. */
 async function extractContent(
   drive: ReturnType<typeof getClient>,
   fileId: string,
   mimeType: string,
 ): Promise<string> {
-  try {
-    if (mimeType === "application/vnd.google-apps.document") {
-      const res = await drive.files.export(
-        { fileId, mimeType: GOOGLE_DOC_EXPORT_MIME },
-        { responseType: "text" },
-      );
-      return res.data as unknown as string;
-    }
-
-    if (mimeType.startsWith("text/") || mimeType === "application/json") {
-      const res = await drive.files.get(
-        { fileId, alt: "media" },
-        { responseType: "text" },
-      );
-      return res.data as unknown as string;
-    }
-
-    // PDFs (resumes, JDs, etc. — real files people actually have in Drive,
-    // not just Google Docs) — previously skipped entirely, so a file like
-    // "Resume_2026_APRIL.pdf" was only ever findable by filename, never by
-    // its actual content. `unpdf` is pdfjs-based but built to run without a
-    // canvas/worker dependency, which matters on Vercel's serverless
-    // functions where those aren't available.
-    if (mimeType === "application/pdf") {
-      const res = await drive.files.get(
-        { fileId, alt: "media" },
-        { responseType: "arraybuffer" },
-      );
-      const pdf = await getDocumentProxy(new Uint8Array(res.data as ArrayBuffer));
-      const { text } = await extractText(pdf, { mergePages: true });
-      return text;
-    }
-
-    // Other binary formats (images, Slides, Sheets) still skipped — out of
-    // scope per SPEC.md; we index metadata (name/owners/dates) only.
-    return "";
-  } catch (err) {
-    console.error(`Failed to extract content for Drive file ${fileId}`, err);
-    return "";
+  if (mimeType === "application/vnd.google-apps.document") {
+    const res = await drive.files.export(
+      { fileId, mimeType: GOOGLE_DOC_EXPORT_MIME },
+      { responseType: "text" },
+    );
+    return res.data as unknown as string;
   }
+
+  if (mimeType.startsWith("text/") || mimeType === "application/json") {
+    const res = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "text" },
+    );
+    return res.data as unknown as string;
+  }
+
+  // PDFs (resumes, JDs, etc. — real files people actually have in Drive,
+  // not just Google Docs) — previously skipped entirely, so a file like
+  // "Resume_2026_APRIL.pdf" was only ever findable by filename, never by
+  // its actual content. `unpdf` is pdfjs-based but built to run without a
+  // canvas/worker dependency, which matters on Vercel's serverless
+  // functions where those aren't available.
+  if (mimeType === "application/pdf") {
+    const res = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "arraybuffer" },
+    );
+    const pdf = await getDocumentProxy(new Uint8Array(res.data as ArrayBuffer));
+    const { text } = await extractText(pdf, { mergePages: true });
+    return text;
+  }
+
+  // Other binary formats (images, Slides, Sheets) still skipped — out of
+  // scope per the v2 design spec; we index metadata (name/owners/dates) only.
+  return "";
 }
 
 /**
@@ -87,17 +86,24 @@ export async function searchFiles(
 
   const files = list.data.files ?? [];
 
-  return Promise.all(
-    files.map(async (f) => ({
-      id: f.id!,
-      name: f.name ?? "",
-      mimeType: f.mimeType ?? "",
-      modifiedTime: f.modifiedTime ?? "",
-      webViewLink: f.webViewLink ?? "",
-      owners: (f.owners ?? []).map((o) => o.emailAddress ?? o.displayName ?? "").filter(Boolean),
-      content: await extractContent(drive, f.id!, f.mimeType ?? ""),
-    })),
+  // A file whose content cannot be read is left out of this result (see extractEach), so the
+  // sync keeps its stored row instead of overwriting it with an empty body.
+  const { extracted, skipped } = await extractEach(
+    files,
+    (f) => extractContent(drive, f.id!, f.mimeType ?? ""),
+    DOWNLOAD_TIMEOUT_MS,
   );
+  if (skipped > 0) console.error(`Drive: ${skipped} of ${files.length} files skipped this sync (content unreadable)`);
+
+  return extracted.map(({ file: f, content }) => ({
+    id: f.id!,
+    name: f.name ?? "",
+    mimeType: f.mimeType ?? "",
+    modifiedTime: f.modifiedTime ?? "",
+    webViewLink: f.webViewLink ?? "",
+    owners: (f.owners ?? []).map((o) => o.emailAddress ?? o.displayName ?? "").filter(Boolean),
+    content,
+  }));
 }
 
 export async function listRecentFiles(accessToken: string, maxResults = 25) {

@@ -350,3 +350,46 @@ test("a slow embedding call is abandoned after its timeout; documents stay pendi
     assert.equal(progress.remaining, 2);
   });
 });
+
+test("the embed budget is measured from the request start, not from the start of the embed phase", async () => {
+  let clock = 0;
+  const { deps } = await setup(
+    { current: gmailOnly(5) },
+    {
+      now: () => clock,
+      embedDocuments: async (texts) => {
+        clock += 5_000;
+        return texts.map(() => unitVector(0));
+      },
+    },
+  );
+  await runFetchPhase(deps);
+  // The request began 30s ago (cold start, auth, DB connect): only 10s of the 40s budget is left.
+  const progress = await runEmbedPhase(deps, 40_000, 1, undefined, -30_000);
+  assert.equal(progress.embedded, 2);
+  assert.equal(progress.remaining, 3);
+});
+
+test("a truncated calendar list stores what it has but never deletes calendar rows", async () => {
+  const fetched = {
+    current: { gmail: [], drive: [], calendar: [bd("calendar:a", "calendar"), bd("calendar:b", "calendar")] } as FetchedDocuments,
+  };
+  const { db, deps } = await setup(fetched);
+  await runFetchPhase(deps);
+  // Same window, but the fetcher hit its page cap: calendar:b may simply be on a page we never read.
+  fetched.current = { gmail: [], drive: [], calendar: [bd("calendar:a", "calendar")], calendarTruncated: true };
+  const warn = console.warn;
+  const warnings: unknown[][] = [];
+  console.warn = (...args) => void warnings.push(args);
+  try {
+    await runFetchPhase(deps);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(warnings.length, 1, "the skipped deletion is logged");
+  assert.deepEqual(await stored(db), ["calendar:a", "calendar:b"]);
+  // A later complete fetch resumes normal deletion.
+  fetched.current = { gmail: [], drive: [], calendar: [bd("calendar:a", "calendar")] };
+  await runFetchPhase(deps);
+  assert.deepEqual(await stored(db), ["calendar:a"]);
+});
