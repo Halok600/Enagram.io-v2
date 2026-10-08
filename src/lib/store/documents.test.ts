@@ -141,3 +141,73 @@ test("setEmbeddings stores vectors, and ignores a stale hash", async () => {
     { id: "gmail:2", has: false },
   ]);
 });
+
+test("duplicate ids in one batch are collapsed, last occurrence wins", async () => {
+  const db = await freshDb();
+  const result = await upsertDocuments(db, [
+    makeDoc({ id: "gmail:1", body: "first" }),
+    makeDoc({ id: "gmail:2", body: "other" }),
+    makeDoc({ id: "gmail:1", body: "last" }),
+  ]);
+  assert.deepEqual(result, { total: 2, changed: 2 });
+  const rows = await db.query<{ id: string; body: string }>(`select id, body from enagram_documents order by id`);
+  assert.deepEqual(rows, [
+    { id: "gmail:1", body: "last" },
+    { id: "gmail:2", body: "other" },
+  ]);
+});
+
+test("NUL and lone surrogates are cleaned from every string field", async () => {
+  const db = await freshDb();
+  await upsertDocuments(db, [
+    makeDoc({
+      id: "calendar:e\u00001",
+      source: "calendar",
+      title: "T\u0000itle\ud83d",
+      url: "https://x.example/\u0000a\udc00",
+      participants: ["a\u0000@x.com", "b\ud83d@x.com"],
+      eventId: "e\u00001\ud83d",
+    }),
+  ]);
+  const rows = await db.query<{ id: string; title: string; url: string; participants: string[]; event_id: string }>(
+    `select id, title, url, participants, event_id from enagram_documents`,
+  );
+  assert.deepEqual(rows, [
+    {
+      id: "calendar:e1",
+      title: "Title�",
+      url: "https://x.example/a�",
+      participants: ["a@x.com", "b�@x.com"],
+      event_id: "e1�",
+    },
+  ]);
+});
+
+test("a document with a valid surrogate pair (emoji) is stored intact", async () => {
+  const db = await freshDb();
+  await upsertDocuments(db, [makeDoc({ id: "gmail:1", body: "party \u{1F389}" })]);
+  const rows = await db.query<{ body: string }>(`select body from enagram_documents`);
+  assert.equal(rows[0].body, "party \u{1F389}");
+});
+
+test("more than one batch of documents (over 25) are all stored", async () => {
+  const db = await freshDb();
+  const docs = Array.from({ length: 60 }, (_, i) => makeDoc({ id: `gmail:${i}`, body: `body ${i}` }));
+  const result = await upsertDocuments(db, docs);
+  assert.deepEqual(result, { total: 60, changed: 60 });
+  assert.equal(await countDocuments(db), 60);
+  assert.deepEqual(await upsertDocuments(db, docs), { total: 60, changed: 0 });
+});
+
+test("upsertDocuments with an empty list does nothing", async () => {
+  const db = await freshDb();
+  assert.deepEqual(await upsertDocuments(db, []), { total: 0, changed: 0 });
+  assert.equal(await countDocuments(db), 0);
+});
+
+test("a NUL-containing document that is upserted again is reported unchanged", async () => {
+  const db = await freshDb();
+  const doc = makeDoc({ id: "drive:1", source: "drive", body: "a\u0000b", participants: ["x\u0000@y.com"] });
+  assert.deepEqual(await upsertDocuments(db, [doc]), { total: 1, changed: 1 });
+  assert.deepEqual(await upsertDocuments(db, [doc]), { total: 1, changed: 0 });
+});

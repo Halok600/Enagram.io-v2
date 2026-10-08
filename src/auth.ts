@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import type { JWT } from "next-auth/jwt";
-import { isEmailAllowed } from "@/lib/allowed-email";
+import { isSignInAllowed } from "@/lib/allowed-email";
 
 const GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
@@ -72,7 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     // Single-owner app: refuse sign-in for any account not on ALLOWED_EMAILS (when it is set).
     async signIn({ user, profile }) {
-      return isEmailAllowed(user.email ?? profile?.email, process.env.ALLOWED_EMAILS);
+      return isSignInAllowed(user.email ?? profile?.email, profile?.email_verified ?? undefined, process.env.ALLOWED_EMAILS);
     },
     async jwt({ token, account }) {
       if (account) {

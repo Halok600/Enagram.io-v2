@@ -1,3 +1,4 @@
+import { MISSING_DATABASE_URL_MESSAGE } from "../db-errors.ts";
 import { createEmbedder, type Embedder } from "../embeddings.ts";
 import { createBrain, type Brain } from "./brain.ts";
 import type { Db } from "./db.ts";
@@ -14,7 +15,7 @@ let embedder: Embedder | null = null;
  */
 export const getDb = lazyAsync(async (): Promise<Db> => {
   const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("Missing required env var DATABASE_URL");
+  if (!url) throw new Error(MISSING_DATABASE_URL_MESSAGE);
   const db = createPostgresDb(url);
   await applySchema(db);
   return db;

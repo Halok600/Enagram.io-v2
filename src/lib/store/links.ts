@@ -15,20 +15,23 @@ const MAX_LINKS = 200;
  */
 export function buildLinkPairs(docs: LinkCandidate[], ownEmail: string): LinkPair[] {
   const own = ownEmail.trim().toLowerCase();
-  const byParticipant = new Map<string, LinkCandidate[]>();
+  const byParticipant = new Map<string, { entries: LinkCandidate[]; ids: Set<string> }>();
   for (const doc of docs) {
     for (const raw of doc.participants) {
       const participant = raw.trim().toLowerCase();
       if (!participant || participant === own) continue; // the user is on nearly everything
-      const list = byParticipant.get(participant) ?? [];
-      if (!list.some((d) => d.id === doc.id)) list.push(doc);
-      byParticipant.set(participant, list);
+      const group = byParticipant.get(participant) ?? { entries: [], ids: new Set<string>() };
+      if (!group.ids.has(doc.id)) {
+        group.ids.add(doc.id);
+        group.entries.push(doc);
+      }
+      byParticipant.set(participant, group);
     }
   }
 
   const seen = new Set<string>();
   const pairs: LinkPair[] = [];
-  for (const entries of byParticipant.values()) {
+  for (const { entries } of byParticipant.values()) {
     if (entries.length < 2 || entries.length > MAX_DOCS_PER_PARTICIPANT) continue;
     for (let i = 0; i < entries.length; i++) {
       for (let j = i + 1; j < entries.length; j++) {
@@ -85,6 +88,7 @@ export async function relatedTo(db: Db, id: string): Promise<{ count: number; re
        from enagram_links l
        join enagram_documents d on d.id = case when l.from_id = $1::text then l.to_id else l.from_id end
       where l.from_id = $1::text or l.to_id = $1::text
+      order by d.doc_date desc nulls last, d.id
       limit 10`,
     [id],
   );

@@ -156,3 +156,40 @@ test("a vector-only hit gets a body-prefix snippet, not a keyword headline", asy
   assert.ok(hits[0].snippet.length > 300, `snippet length ${hits[0].snippet.length}`);
   assert.ok(hits[0].snippet.length <= 600);
 });
+
+test("buildTsQuery keeps combining marks inside a word (decomposed accents, Devanagari)", () => {
+  assert.equal(buildTsQuery("café au lait"), "café | au | lait");
+  assert.equal(buildTsQuery("हिन्दी भाषा"), "हिन्दी | भाषा");
+});
+
+test("a keyword search finds accented and Devanagari text without throwing", async () => {
+  const db = await seededDb();
+  await upsertDocuments(db, [
+    makeDoc({ id: "gmail:cafe", title: "Reservation", body: "Table booked at the café on Friday" }),
+    makeDoc({ id: "gmail:hindi", title: "Note", body: "यह हिन्दी भाषा का लेख है" }),
+  ]);
+  const accented = await searchDocuments(db, { query: "café" });
+  assert.ok(accented.some((h) => h.slug === "gmail:cafe"));
+  const hindi = await searchDocuments(db, { query: "हिन्दी" });
+  assert.ok(hindi.some((h) => h.slug === "gmail:hindi"));
+});
+
+test("a literal <b> in the body survives in a vector-only snippet (no headline to strip)", async () => {
+  const db = await seededDb();
+  await upsertDocuments(db, [makeDoc({ id: "gmail:html", title: "Markup", body: "Use the <b>bold</b> tag for emphasis" })]);
+  await setVector(db, "gmail:html", 6);
+  const hits = await searchDocuments(db, { query: "zzzzqq", queryEmbedding: unitVector(6) });
+  assert.equal(hits[0].slug, "gmail:html");
+  assert.equal(hits[0].snippet, "Use the <b>bold</b> tag for emphasis");
+});
+
+test("keyword snippets never leak the highlight markers", async () => {
+  const db = await seededDb();
+  await upsertDocuments(db, [
+    makeDoc({ id: "gmail:quokka", title: "Markup", body: "Use the <b>quokka</b> tag for emphasis in quokka notes" }),
+  ]);
+  const hits = await searchDocuments(db, { query: "quokka" });
+  assert.equal(hits[0].slug, "gmail:quokka");
+  assert.ok(hits[0].snippet.includes("quokka"));
+  assert.ok(!hits[0].snippet.includes("@@"), hits[0].snippet);
+});

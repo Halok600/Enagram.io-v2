@@ -5,9 +5,30 @@ import type { StoredDocument } from "./types.ts";
 export const EMBED_TEXT_CHARS = 6000;
 const UPSERT_BATCH_SIZE = 25;
 
-/** Postgres text cannot hold NUL bytes, and PDF extraction can emit them. */
+/**
+ * Postgres text cannot hold NUL bytes (PDF extraction can emit them) and jsonb rejects lone
+ * UTF-16 surrogates (e.g. an emoji cut in half by a snippet), so both are fixed before storing.
+ */
 function clean(value: string): string {
-  return value.replace(/\u0000/g, "");
+  return value.replace(/\u0000/g, "").toWellFormed();
+}
+
+function cleanOrNull(value: string | null): string | null {
+  return value === null ? null : clean(value);
+}
+
+function cleanDocument(doc: StoredDocument): StoredDocument {
+  return {
+    ...doc,
+    id: clean(doc.id),
+    source: clean(doc.source) as StoredDocument["source"],
+    title: clean(doc.title),
+    body: clean(doc.body),
+    url: cleanOrNull(doc.url),
+    docDate: cleanOrNull(doc.docDate),
+    participants: doc.participants.map(clean),
+    eventId: cleanOrNull(doc.eventId),
+  };
 }
 
 export function contentHash(doc: StoredDocument): string {
@@ -40,7 +61,8 @@ export async function upsertDocuments(
 ): Promise<{ total: number; changed: number }> {
   if (docs.length === 0) return { total: 0, changed: 0 };
 
-  const cleaned = docs.map((d) => ({ ...d, title: clean(d.title), body: clean(d.body) }));
+  // Last occurrence of an id wins, so one batch never hits "ON CONFLICT cannot affect row a second time".
+  const cleaned = [...new Map(docs.map(cleanDocument).map((d) => [d.id, d])).values()];
   const withHash = cleaned.map((doc) => ({ doc, hash: contentHash(doc) }));
 
   const existing = await db.query<{ id: string; content_hash: string }>(
@@ -65,7 +87,7 @@ export async function upsertDocuments(
     await db.query(UPSERT_SQL, [JSON.stringify(payload)]);
   }
 
-  return { total: docs.length, changed: changed.length };
+  return { total: cleaned.length, changed: changed.length };
 }
 
 /**

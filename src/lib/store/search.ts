@@ -20,10 +20,11 @@ export function rrfFuse(lists: string[][], k = RRF_K): { id: string; score: numb
  * sentence like "Update me for the TCS mail which came?" matched zero documents
  * (verified 2026-10-07). With OR and the english config (which drops stop words),
  * documents matching more of the rare terms rank higher. Built with `new RegExp`
- * because this project's TS target (ES2017) rejects \p{...} regex literals.
+ * because this project's TS target (ES2017) rejects \p{...} regex literals. Combining marks
+ * (\p{M}) are part of a word, so accented and Devanagari-style text is not split mid-word.
  */
 export function buildTsQuery(question: string): string | null {
-  const terms = Array.from(new Set(question.toLowerCase().match(new RegExp("[\\p{L}\\p{N}]+", "gu")) ?? [])).slice(
+  const terms = Array.from(new Set(question.toLowerCase().match(new RegExp("[\\p{L}\\p{N}\\p{M}]+", "gu")) ?? [])).slice(
     0,
     MAX_TERMS,
   );
@@ -52,8 +53,14 @@ type HitRow = {
   headline: string | null;
 };
 
+// ts_headline's default <b> tags would be indistinguishable from a literal "<b>" in the body, so use
+// markers that cannot plausibly occur in a document and strip exactly those.
+const HIGHLIGHT_START = "@@enagram-hl@@";
+const HIGHLIGHT_STOP = "@@/enagram-hl@@";
+
 function snippetOf(row: HitRow): string {
-  const text = (row.headline || row.body).replace(/<\/?b>/g, "").replace(/\s+/g, " ").trim();
+  const marked = row.headline || row.body;
+  const text = marked.split(HIGHLIGHT_START).join("").split(HIGHLIGHT_STOP).join("").replace(/\s+/g, " ").trim();
   return text.slice(0, 600);
 }
 
@@ -88,7 +95,7 @@ export async function searchDocuments(db: Db, options: SearchOptions): Promise<B
     `select id, source, title, url, doc_date, event_id, left(body, 2000) as body,
             case when $2::text is not null and fts @@ to_tsquery('english', $2::text)
                  then ts_headline('english', left(body, 20000), to_tsquery('english', $2::text),
-                                  'MaxWords=60, MinWords=25, MaxFragments=1')
+                                  'MaxWords=60, MinWords=25, MaxFragments=1, StartSel=${HIGHLIGHT_START}, StopSel=${HIGHLIGHT_STOP}')
             end as headline
        from enagram_documents where id = any($1::text[])`,
     [fused.map((f) => f.id), tsQuery],

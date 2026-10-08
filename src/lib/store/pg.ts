@@ -33,6 +33,14 @@ function wrap(sql: postgres.Sql, inTransaction: boolean): Db {
  * pooler (port 6543) needs. One connection per serverless instance is plenty.
  */
 export function createPostgresDb(url: string): Db {
-  const sql = postgres(url, { prepare: false, ssl: "require", max: 1, idle_timeout: 20, connect_timeout: 15 });
+  const sql = postgres(url, {
+    prepare: false,
+    ssl: "require",
+    max: 1,
+    idle_timeout: 20,
+    connect_timeout: 15,
+    // NOTICEs ("already exists, skipping", stop-word-only tsquery) are expected; don't console.log them.
+    onnotice: () => {},
+  });
   return wrap(sql, false);
 }
