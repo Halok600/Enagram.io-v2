@@ -12,11 +12,12 @@ const TONE: Record<TapeTone, { word: string; cls: string }> = {
 };
 
 // Full-bleed hazard band, tilted -1deg (motion-safe only). The page container must hide horizontal overflow.
-// Every item carries a word prefix, so colour is never the only signal.
+// Every item carries a word prefix, so colour is never the only signal. The live region (role=status) belongs to the
+// caller, which keeps it mounted while this renders nothing, so announcements are not missed.
 export function TapeStrip({ items, onRetry }: { items: TapeItem[]; onRetry?: () => void }) {
   if (items.length === 0) return null;
   return (
-    <div role="status" aria-live="polite" className="relative z-10 -mx-[3%] w-[106%] bg-[var(--panel)] shadow-[0_6px_0_var(--shadow-color)] motion-safe:-rotate-1">
+    <div className="relative z-10 -mx-[3%] w-[106%] bg-[var(--panel)] shadow-[0_6px_0_var(--shadow-color)] motion-safe:-rotate-1">
       <div aria-hidden className="hazard h-3.5 border-y-[length:var(--stroke)] border-[var(--line)]" />
       <ul className="m-0 flex list-none flex-wrap items-center gap-x-4 gap-y-2 px-[5%] py-3">
         {items.map((item) => {

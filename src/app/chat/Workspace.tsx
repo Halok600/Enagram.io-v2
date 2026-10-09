@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useChat, type UseChatHelpers } from "@ai-sdk/react";
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses, type UIMessage } from "ai";
-import { Sidebar } from "./Sidebar";
 import { Chat } from "./Chat";
 import { runFullSync } from "../syncClient";
-import { DbStatusBanner } from "./DbStatusBanner";
+import { TopBar } from "../ui/TopBar";
+import { TapeSlot } from "../ui/TapeSlot";
+import { useHealth } from "../useHealth";
+import { useSync } from "../useSync";
+import { selectTapeItems } from "@/lib/ui/tape";
 import { friendlyClientError } from "@/lib/client-errors";
 import { isToolPartInFlight } from "./approvalView";
 
@@ -82,6 +85,9 @@ export function Workspace({ email, name }: { email: string; name?: string }) {
   });
 
   const activeTools = computeActiveTools(chat.messages);
+  const health = useHealth();
+  const sync = useSync();
+  const tapeItems = selectTapeItems({ dbMessage: health.dbMessage, chatError: systemError, sync });
 
   // "Auto-sync on server startup" isn't actually reachable — Next's server
   // lifecycle has no user session/OAuth token at that point (ingestion needs
@@ -95,7 +101,7 @@ export function Workspace({ email, name }: { email: string; name?: string }) {
     autoSyncedRef.current = true;
     // Throttled server-side: the route skips the fetch if a sync finished in the last 10 minutes
     // (AUTO_SYNC_MIN_INTERVAL_MS in lib/sync/throttle.ts). Only `auto` requests are throttled;
-    // the SyncButton's manual "Sync now" always runs.
+    // the Sync button's manual "Sync now" always runs.
     runFullSync({ auto: true })
       .then((result) => console.log("Auto-sync on load:", result))
       .catch((err) => console.error("Auto-sync on load failed:", err));
@@ -118,20 +124,24 @@ export function Workspace({ email, name }: { email: string; name?: string }) {
   }
 
   return (
-    <div className="flex h-screen w-screen gap-4 overflow-hidden p-4">
-      <Sidebar email={email} activeTools={activeTools} />
-      <main className="flex min-w-0 flex-1 flex-col">
-        <DbStatusBanner />
+    <div className="flex h-dvh w-full flex-col overflow-hidden">
+      <TopBar
+        email={email}
+        documents={health.view.documents}
+        sync={{ state: sync.state, run: () => void sync.run() }}
+        variant="chat"
+      />
+      <TapeSlot items={tapeItems} onRetry={retryLastMessage} />
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col px-3 pt-4 pb-3 md:px-6 md:pb-5">
         <Chat
           name={name}
           messages={chat.messages}
           status={chat.status}
           userTimestamps={userTimestamps}
           assistantTimestamps={assistantTimestamps}
+          activeTools={activeTools}
           onSend={sendStampedMessage}
           onApprovalResponse={respondToApproval}
-          systemError={systemError}
-          onRetry={retryLastMessage}
         />
       </main>
     </div>

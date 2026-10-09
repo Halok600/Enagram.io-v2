@@ -1,13 +1,6 @@
 import { motion } from "framer-motion";
 import { Mail, HardDrive, type LucideIcon } from "lucide-react";
-
-export type Source = {
-  tool: "search_gmail" | "search_drive";
-  title: string;
-  slug: string;
-  score: number;
-  url?: string;
-};
+import type { Source } from "./source";
 
 const ICON: Record<Source["tool"], LucideIcon> = {
   search_gmail: Mail,

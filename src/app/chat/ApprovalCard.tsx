@@ -1,5 +1,9 @@
 import { motion } from "framer-motion";
-import { Check, CircleAlert, ShieldQuestion, X } from "lucide-react";
+import { Check, X } from "lucide-react";
+import { Card } from "../ui/Card";
+import { Stamp } from "../ui/Stamp";
+import { StickerButton } from "../ui/StickerButton";
+import type { Tone } from "../ui/tone";
 import type { ApprovalCardModel, ApprovalCardStatus } from "./approvalView";
 
 const OUTCOME_LABEL: Record<Exclude<ApprovalCardStatus, "pending">, string> = {
@@ -9,10 +13,19 @@ const OUTCOME_LABEL: Record<Exclude<ApprovalCardStatus, "pending">, string> = {
   failed: "Approved, but it did not work.",
 };
 
+// The stamp repeats the outcome in one word; the sentence beside it carries the full wording.
+const OUTCOME_STAMP: Record<Exclude<ApprovalCardStatus, "pending">, { word: string; tone: Tone }> = {
+  approved: { word: "APPROVED", tone: "cobalt" },
+  declined: { word: "DECLINED", tone: "plain" },
+  done: { word: "DONE", tone: "cobalt" },
+  failed: { word: "FAILED", tone: "danger" },
+};
+
 /**
  * Asks the owner before a chat tool changes anything (preferences, calendar).
  * All wording comes from approvalView.ts; this only draws it. While pending it
- * shows Approve / Deny; afterwards it shows the outcome instead of buttons.
+ * shows Approve / Deny inside a hazard-striped "HOLD UP" frame; afterwards it shows
+ * the outcome (a stamp and the same words) instead of buttons.
  */
 export function ApprovalCard({
   card,
@@ -23,7 +36,56 @@ export function ApprovalCard({
 }) {
   const { status, approvalId } = card;
   const isPending = status === "pending" && approvalId !== undefined;
-  const isBad = status === "failed" || status === "declined";
+  const isFailed = status === "failed";
+  const outcome = status === "pending" ? undefined : OUTCOME_STAMP[status];
+
+  const body = (
+    <Card tone={isPending ? "sun" : "panel"} shadow={isPending ? "none" : "md"} className="flex flex-col gap-3 p-4 sm:p-5">
+      {isPending && <h3 className="font-display text-3xl leading-none sm:text-4xl">HOLD UP</h3>}
+      <p className="text-base leading-snug font-semibold break-words">{card.sentence}</p>
+      {card.details.map((d) => (
+        <div key={d.label} className="flex min-w-0 flex-col gap-1.5">
+          <span className="text-sm font-semibold">{d.label}</span>
+          {/* The complete text, never clipped: scrolls when long and keeps line breaks. */}
+          <Card
+            shadow="none"
+            tabIndex={0}
+            className="max-h-48 overflow-y-auto px-3 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap"
+          >
+            {d.text}
+          </Card>
+        </div>
+      ))}
+
+      {isPending ? (
+        <>
+          <p className="text-sm font-medium">Nothing happens until you choose.</p>
+          <div className="grid grid-cols-2 gap-3 pt-1 sm:flex sm:flex-wrap">
+            <StickerButton tone="cobalt" className="w-full sm:w-auto" onClick={() => onRespond(approvalId, true)}>
+              <Check size={18} strokeWidth={3} aria-hidden />
+              APPROVE
+            </StickerButton>
+            <StickerButton tone="danger" className="w-full sm:w-auto" onClick={() => onRespond(approvalId, false)}>
+              <X size={18} strokeWidth={3} aria-hidden />
+              DENY
+            </StickerButton>
+          </div>
+        </>
+      ) : (
+        outcome && (
+          <div className="flex flex-wrap items-center gap-3">
+            <span aria-hidden>
+              <Stamp tone={outcome.tone}>{outcome.word}</Stamp>
+            </span>
+            <span className={`text-sm font-medium ${isFailed ? "text-[var(--danger-ink)]" : ""}`}>
+              {OUTCOME_LABEL[status as Exclude<ApprovalCardStatus, "pending">] ?? ""}
+              {card.detail ? ` ${card.detail}` : ""}
+            </span>
+          </div>
+        )
+      )}
+    </Card>
+  );
 
   return (
     <motion.div
@@ -32,74 +94,15 @@ export function ApprovalCard({
       transition={{ duration: 0.2, ease: "easeOut" }}
       role="group"
       aria-label="Confirmation needed"
-      className={`mt-3 flex flex-col gap-3 rounded-[var(--radius-md)] border px-4 py-3 ${
-        isPending
-          ? "border-[var(--accent)]/40 bg-[var(--accent-soft-bg)]"
-          : "border-[var(--border)] bg-[var(--bg-panel-raised)]"
-      }`}
+      className="w-full"
     >
-      <div className="flex items-start gap-2.5">
-        {isPending ? (
-          <ShieldQuestion size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" aria-hidden />
-        ) : status === "failed" ? (
-          <CircleAlert size={18} className="mt-0.5 shrink-0 text-[var(--danger)]" aria-hidden />
-        ) : status === "declined" ? (
-          <X size={18} className="mt-0.5 shrink-0 text-[var(--text-tertiary)]" aria-hidden />
-        ) : (
-          <Check size={18} className="mt-0.5 shrink-0 text-[var(--success)]" aria-hidden />
-        )}
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-sm font-medium leading-relaxed break-words text-[var(--text-primary)]">
-            {card.sentence}
-          </span>
-          {card.details.map((d) => (
-            <div key={d.label} className="flex min-w-0 flex-col gap-1">
-              <span className="text-xs font-medium text-[var(--text-tertiary)]">{d.label}</span>
-              {/* The complete text, never clipped: scrolls when long and keeps line breaks. */}
-              <div
-                tabIndex={0}
-                className="max-h-48 overflow-y-auto rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg-panel)] px-3 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap text-[var(--text-primary)]"
-              >
-                {d.text}
-              </div>
-            </div>
-          ))}
-          {isPending ? (
-            <span className="text-xs text-[var(--text-secondary)]">Nothing happens until you choose.</span>
-          ) : (
-            <span className={`text-xs ${isBad ? "text-[var(--danger)]" : "text-[var(--text-secondary)]"}`}>
-              {OUTCOME_LABEL[status as Exclude<ApprovalCardStatus, "pending">] ?? ""}
-              {card.detail ? ` ${card.detail}` : ""}
-            </span>
-          )}
+      {isPending ? (
+        // The hazard frame: the stripes run all the way round the sun card.
+        <div className="hazard elev rounded-[var(--radius-card)] border-[length:var(--stroke)] border-[var(--line)] p-3 [--elevation:var(--shadow-hard)]">
+          {body}
         </div>
-      </div>
-
-      {isPending && (
-        <div className="flex gap-2 self-start">
-          <motion.button
-            type="button"
-            onClick={() => onRespond(approvalId, true)}
-            whileHover={{ y: -1 }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ duration: 0.15 }}
-            className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-[var(--accent-strong)] px-3 py-1.5 text-xs font-medium text-white"
-          >
-            <Check size={13} aria-hidden />
-            Approve
-          </motion.button>
-          <motion.button
-            type="button"
-            onClick={() => onRespond(approvalId, false)}
-            whileHover={{ y: -1 }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ duration: 0.15 }}
-            className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--bg-panel)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)]"
-          >
-            <X size={13} aria-hidden />
-            Deny
-          </motion.button>
-        </div>
+      ) : (
+        body
       )}
     </motion.div>
   );

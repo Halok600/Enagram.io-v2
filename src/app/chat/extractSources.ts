@@ -1,4 +1,4 @@
-import type { Source } from "./SourceChip";
+import type { Source } from "./source.ts";
 
 const RELEVANCE_THRESHOLD = 0.5;
 const MAX_SOURCES_SHOWN = 6;

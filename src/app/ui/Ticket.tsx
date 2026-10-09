@@ -16,7 +16,7 @@ export function Ticket({ n, title, tone, url, score }: { n: number; title: strin
       <div className="ticket-edge h-16">
         <div className={`ticket-fill ${TONE_CLASS[tone]}`}>
           <div className="flex h-full items-center">
-            <span title={title} className="font-display min-w-0 flex-1 truncate pr-3 pl-6 text-[0.9rem]" style={{ lineHeight: 1.25 }}>
+            <span title={label} className="font-display min-w-0 flex-1 truncate pr-3 pl-6 text-[0.9rem]" style={{ lineHeight: 1.25 }}>
               {title}
             </span>
             <span
@@ -35,13 +35,13 @@ export function Ticket({ n, title, tone, url, score }: { n: number; title: strin
   const shared = { whileHover: hover, transition: THUNK, className: `ticket-link block w-full ${tilt}` } as const;
   if (url) {
     return (
-      <motion.a href={url} target="_blank" rel="noopener noreferrer" aria-label={`Source ${n}: ${label}`} {...shared}>
+      <motion.a href={url} target="_blank" rel="noopener noreferrer" aria-label={`Source ${n}: ${label}`} title={label} {...shared}>
         {body}
       </motion.a>
     );
   }
   return (
-    <motion.div role="group" aria-label={`Source ${n}: ${label}`} {...shared}>
+    <motion.div role="group" aria-label={`Source ${n}: ${label}`} title={label} {...shared}>
       {body}
     </motion.div>
   );

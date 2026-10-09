@@ -1,19 +1,19 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Mail, HardDrive, CalendarDays, Sparkles } from "lucide-react";
-import { HeroLogo } from "./HeroLogo";
+import { motion, useReducedMotion } from "framer-motion";
+import { CalendarDays, HardDrive, Mail, Reply, type LucideIcon } from "lucide-react";
+import { Chip } from "../ui/Chip";
+import { firstName, SUGGESTIONS } from "@/lib/ui/greeting";
 
-const SUGGESTIONS = [
-  { text: "What's my status on the ExampleCo application?", icon: Sparkles },
-  { text: "Summarize recent emails from Priya", icon: Mail },
-  { text: "What Drive files do I have for internships?", icon: HardDrive },
-  { text: "What's on my calendar this week?", icon: CalendarDays },
-];
+const ICONS: Record<(typeof SUGGESTIONS)[number]["kind"], LucideIcon> = {
+  mail: Mail,
+  calendar: CalendarDays,
+  files: HardDrive,
+  reply: Reply,
+};
 
-function firstName(name?: string): string | null {
-  return name?.trim().split(/\s+/)[0] || null;
-}
+// The four chips take the sticker colours in turn.
+const TONES = ["cobalt", "sun", "bubblegum", "plain"] as const;
 
 export function EmptyState({
   name,
@@ -25,44 +25,38 @@ export function EmptyState({
   isBusy: boolean;
 }) {
   const greetName = firstName(name);
+  const reduce = useReducedMotion();
+  const enter = (delay: number) =>
+    reduce
+      ? {}
+      : {
+          initial: { opacity: 0, y: 12 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.3, delay, ease: "easeOut" as const },
+        };
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-8 text-center">
-      <HeroLogo />
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: "easeOut" }}
-        className="flex flex-col gap-2"
-      >
-        <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">
-          {greetName ? `Hello, ${greetName}` : "Hello there"}
+    <div className="flex w-full flex-col gap-6 text-left">
+      <motion.div className="flex flex-col gap-3" {...enter(0)}>
+        <h1 className="font-display text-[clamp(3rem,9.5vw,7.5rem)] break-words">
+          WHAT&apos;S UP{greetName ? "," : "?"}
+          {greetName ? <span className="block [overflow-wrap:anywhere]">{greetName}?</span> : null}
         </h1>
-        <p className="text-lg text-[var(--text-secondary)]">
-          What can I help you find in your brain today?
-        </p>
+        <p className="font-hand text-xl text-[var(--ink-soft)] sm:text-3xl">ask me anything about your mail, files and week</p>
       </motion.div>
 
-      <div className="grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
-        {SUGGESTIONS.map(({ text, icon: Icon }, i) => (
-          <motion.button
-            key={text}
-            type="button"
-            disabled={isBusy}
-            onClick={() => onSend(text)}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.15 + i * 0.08, ease: "easeOut" }}
-            whileHover={isBusy ? undefined : { y: -2, boxShadow: "var(--shadow-md)" }}
-            whileTap={isBusy ? undefined : { scale: 0.98 }}
-            className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg-panel)] px-4 py-3 text-left text-sm text-[var(--text-primary)] disabled:opacity-50"
-            style={{ boxShadow: "var(--shadow-sm)" }}
-          >
-            <Icon size={18} className="shrink-0 text-[var(--accent)]" />
-            <span>{text}</span>
-          </motion.button>
-        ))}
-      </div>
+      <motion.ul aria-label="Suggestions" className="flex flex-wrap gap-x-3 gap-y-4" {...enter(0.12)}>
+        {SUGGESTIONS.map(({ id, text, kind }, i) => {
+          const Icon = ICONS[kind];
+          return (
+            <li key={id}>
+              <Chip tone={TONES[i % TONES.length]} icon={<Icon size={16} strokeWidth={2.5} />} disabled={isBusy} onClick={() => onSend(text)}>
+                {text}
+              </Chip>
+            </li>
+          );
+        })}
+      </motion.ul>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 // Screenshot runner for the development-only /design preview. Dependency-free (Node 22+ for the global WebSocket).
 //
-//   node scripts/design-shots.mjs [view ...] [--base=http://localhost:3100] [--section=<id>] [--viewport-only]
+//   node scripts/design-shots.mjs [view ...] [--base=http://localhost:3100] [--section=<id>] [--size=WxH] [--viewport-only]
 //
 // For every view (default "kit") x theme (dark, light) x size (1440x900, 390x844) it starts headless Chrome or Edge
 // from the command line with a throwaway --user-data-dir in the OS temp directory (never a real browser profile,
@@ -38,10 +38,14 @@ if (!browserPath) {
   process.exit(1);
 }
 
-const SIZES = [
-  [1440, 900],
-  [390, 844],
-];
+// --size=WxH renders just that one size (for example --size=800x900 to look at a tablet width).
+const sizeOpt = opt("size");
+const SIZES = sizeOpt
+  ? [sizeOpt.split("x").map(Number)]
+  : [
+      [1440, 900],
+      [390, 844],
+    ];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const outDir = resolve("design-shots");
