@@ -52,7 +52,7 @@ export async function replaceLinks(db: Db, pairs: LinkPair[]): Promise<void> {
     if (pairs.length === 0) return;
     await tx.query(
       `insert into enagram_links (from_id, to_id)
-       select from_id, to_id from jsonb_to_recordset($1::jsonb) as r(from_id text, to_id text)
+       select from_id, to_id from jsonb_to_recordset($1::text::jsonb) as r(from_id text, to_id text)
        on conflict do nothing`,
       [JSON.stringify(pairs.map((p) => ({ from_id: p.from, to_id: p.to })))],
     );

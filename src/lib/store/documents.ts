@@ -47,7 +47,7 @@ const UPSERT_SQL = `
   insert into enagram_documents
     (id, source, title, body, url, doc_date, participants, event_id, content_hash)
   select id, source, title, body, url, doc_date, coalesce(participants, '{}'), event_id, content_hash
-    from jsonb_to_recordset($1::jsonb) as r(
+    from jsonb_to_recordset($1::text::jsonb) as r(
       id text, source text, title text, body text, url text, doc_date timestamptz,
       participants text[], event_id text, content_hash text)
   on conflict (id) do update set
@@ -129,7 +129,7 @@ export async function setEmbeddings(
   const payload = items.map((i) => ({ id: i.id, hash: i.hash, embedding: `[${i.embedding.join(",")}]` }));
   const written = await db.query(
     `update enagram_documents d set embedding = r.embedding::vector
-       from jsonb_to_recordset($1::jsonb) as r(id text, hash text, embedding text)
+       from jsonb_to_recordset($1::text::jsonb) as r(id text, hash text, embedding text)
       where d.id = r.id and d.content_hash = r.hash
       returning d.id`,
     [JSON.stringify(payload)],
