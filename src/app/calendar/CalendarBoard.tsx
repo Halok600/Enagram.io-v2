@@ -107,9 +107,9 @@ export function CalendarBoard({ email }: { email: string }) {
   // plain function whose only synchronous statement is the fetch() call
   // itself — every setState happens inside a later .then() callback,
   // never synchronously in the effect's call stack — sidesteps it cleanly,
-  // matching CalendarHoverCard.tsx's already-correct pattern.
+  // the same pattern the rest of the app uses.
   // Guarded by a monotonic request id rather than a single per-effect
-  // `cancelled` flag (CalendarHoverCard.tsx's pattern) because fetchEvents
+  // `cancelled` flag because fetchEvents
   // is called from multiple places — the range-change effect below, but
   // also EventModal's onSaved and handleDrop's post-reschedule refresh —
   // so a stale in-flight response needs to be ignorable no matter which

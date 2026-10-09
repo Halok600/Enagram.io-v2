@@ -15,6 +15,7 @@ import { ConnectGoogleButton, LoginCard } from "../ui/LoginCard";
 import { CALENDAR_VIEWS, CalendarPreview } from "./CalendarPreview";
 import { Ticket } from "../ui/Ticket";
 import { WorkingTicker } from "../ui/WorkingTicker";
+import { LogoView } from "./LogoView";
 import {
   APPROVAL_LONG_MESSAGES,
   APPROVAL_SHORT_MESSAGES,
@@ -340,6 +341,14 @@ export function DesignPreview({ theme, view, section }: Props) {
     return (
       <div className="min-h-screen overflow-x-clip bg-[var(--bg)] text-[var(--ink)]">
         <CalendarPreview view={view} />
+      </div>
+    );
+  }
+
+  if (view === "logo") {
+    return (
+      <div className="min-h-screen overflow-x-clip bg-[var(--bg)] text-[var(--ink)]">
+        <LogoView />
       </div>
     );
   }

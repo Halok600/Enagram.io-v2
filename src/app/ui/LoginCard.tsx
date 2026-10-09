@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Card } from "./Card";
+import { LogoMark } from "./LogoMark";
 import { Stamp } from "./Stamp";
 import { StickerButton } from "./StickerButton";
 
@@ -11,7 +12,12 @@ export function LoginCard({ children }: { children: ReactNode }) {
       <main className="w-full max-w-2xl">
         <Card shadow="lg" className="flex flex-col gap-7 p-6 sm:p-10">
           <div className="flex flex-col items-start gap-3">
-            <Stamp tone="sun">Login</Stamp>
+            <div className="flex items-end gap-4">
+              <LogoMark size={88} tilt className="max-sm:h-18 max-sm:w-18" />
+              <Stamp tone="sun" className="mb-2">
+                Login
+              </Stamp>
+            </div>
             <h1 className="font-display text-[clamp(2rem,9.5vw,4.75rem)]">ENAGRAM*</h1>
             <p className="font-hand text-2xl text-[var(--ink-soft)] sm:text-3xl">your mail, files and week, in one place</p>
           </div>

@@ -13,8 +13,7 @@ const ThemeContext = createContext<{
   theme: Theme;
   toggleTheme: () => void;
   /** False until the post-mount correction effect below has run. Consumers
-   * that branch their RENDERED OUTPUT on `theme` (HeroLogo's icon choice,
-   * ThemeToggle's thumb position) should wait for `mounted` before showing
+   * that branch their RENDERED OUTPUT on `theme` (ThemeToggle's pressed half) should wait for `mounted` before showing
    * anything theme-dependent — otherwise a user whose real preference is
    * "light" sees the hardcoded "dark" version fully painted and then
    * watches it visibly animate away once `theme` corrects, instead of just
@@ -28,8 +27,7 @@ const ThemeContext = createContext<{
  * initializer (see below) — that caused a genuine hydration mismatch,
  * not just a cosmetic one: the server always renders assuming "dark" (no
  * `document` access), so any component reading `theme` from context and
- * branching on it (ThemeToggle's aria-label, HeroLogo's entire icon
- * swap) would render DIFFERENT output between the server pass and the
+ * branching on it (ThemeToggle's pressed state) would render DIFFERENT output between the server pass and the
  * client's first hydration pass whenever the user's real stored
  * preference was "light" — invisible until someone actually had "light"
  * saved and reloaded. `suppressHydrationWarning` on <html> in layout.tsx

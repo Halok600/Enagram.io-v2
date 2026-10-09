@@ -16,7 +16,7 @@ export type SyncView = {
   run: () => Promise<void>;
 };
 
-/** The manual "Sync now" run, with the same progress and waiting messages the old SyncButton showed. */
+/** The manual "Sync now" run, with the progress and waiting messages the tape strip shows. */
 export function useSync(): SyncView {
   const [state, setState] = useState<SyncState>("idle");
   const [result, setResult] = useState<string | null>(null);

@@ -6,6 +6,7 @@ import { ArrowLeft, CalendarDays, HardDrive, Mail, Menu, RefreshCw, X } from "lu
 import { disconnect } from "../actions";
 import { ThemeToggle } from "../chat/ThemeToggle";
 import { Chip } from "./Chip";
+import { LogoMark } from "./LogoMark";
 import { StickerButton } from "./StickerButton";
 
 type SyncProp = { state: "idle" | "loading" | "done" | "error"; run: () => void };
@@ -94,12 +95,7 @@ export function TopBar({ email, documents, sync, variant, defaultOpen = false }:
           className="elev flex items-center justify-between gap-3 rounded-[var(--radius-card)] border-[length:var(--stroke)] border-[var(--line)] bg-[var(--panel)] px-2.5 py-2.5 [--elevation:var(--shadow-hard)] sm:px-3 md:gap-4"
         >
           <Link href="/" aria-label="Enagram home" className="flex shrink-0 items-center gap-2 rounded-[var(--radius-card)] sm:gap-3">
-            <span
-              aria-hidden
-              className="font-display flex h-11 w-11 items-center justify-center rounded-[var(--radius-card)] border-[length:var(--stroke)] border-[var(--line)] bg-[var(--cobalt)] text-2xl max-[359px]:h-9 max-[359px]:w-9 max-[359px]:text-xl text-[var(--on-cobalt)] [box-shadow:var(--shadow-hard)]"
-            >
-              E
-            </span>
+            <LogoMark size={48} tilt className="max-[359px]:h-10 max-[359px]:w-10" />
             <span className="font-display inline-block rounded-[2px] border-[length:var(--stroke)] border-[var(--line)] bg-[var(--sun)] px-2 py-1.5 text-base tracking-wide text-[var(--on-sun)] max-[359px]:px-1.5 max-[359px]:text-sm sm:px-2.5 sm:text-lg [box-shadow:var(--shadow-hard-sm)] motion-safe:-rotate-2">
               ENAGRAM*
             </span>

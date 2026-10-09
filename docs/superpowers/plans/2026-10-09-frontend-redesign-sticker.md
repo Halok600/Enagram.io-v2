@@ -804,3 +804,29 @@ git commit -m "Restyle the calendar board and the event editor"
 git add -A
 git commit -m "Add the development-only design preview and screenshot runner; remove the old sidebar and legacy tokens"
 ```
+
+---
+
+### Task 9: The Enagram logo, favicon and brand mark
+
+**Owner request (2026-10-09):** "make sure you create a particular logo for this so that it looks cool", with a browser-tab icon as the reference (a bold glyph in a dark circle on the tab). The app currently shows the default framework icon in the tab (`src/app/favicon.ico`) and a plain "E" square in the top bar.
+
+**Files:**
+- Create: `src/app/icon.svg` (the favicon), `src/app/apple-icon.png` (180x180, rendered from the same artwork), `src/app/ui/LogoMark.tsx`
+- Modify: `src/app/ui/TopBar.tsx` (replace the "E" square with `<LogoMark />`), `src/app/ui/LoginCard.tsx` (large mark above the title), `src/app/design/DesignPreview.tsx` (new `logo` view)
+- Delete: `src/app/favicon.ico` (with `git rm`), only after confirming the new `icon.svg` is served instead (Next's file-based metadata adds the `<link rel="icon">`)
+
+**Interfaces:**
+- Produces: `LogoMark(props: { size?: number; tilt?: boolean; className?: string }): JSX.Element` (decorative: `aria-hidden`, `focusable="false"`; colours from the CSS tokens `--cobalt`, `--on-cobalt`, `--sun`, `--line`, `--shadow-color`, so it adapts to dark and light; default size 40).
+
+**Design brief (binding):** A bold, memorable mark in the STICKER language: a cobalt square sticker with a thick ink outline and a hard offset shadow, containing a heavy geometric "E" (built from the wide display weight, drawn as paths so it needs no font) plus a sun-yellow asterisk burst (the brand is "ENAGRAM*") overlapping a corner, slightly tilted when `tilt` is set. It must read at 16x16 and 32x32 (favicon sizes) as a distinct shape and colour even on both dark and light browser tabs: the favicon artwork therefore carries its OWN opaque background and outline and uses fixed hex colours (a favicon cannot read page CSS variables; this is the one allowed exception to "tokens only", and the hexes must equal the light-theme token values `#2a3bff`, `#ffffff`, `#ffd23f`, `#111111`). Try at least three distinct candidates in the `logo` preview, pick the strongest and say in the report why; keep the rejected ones out of the repo. No raster artwork except `apple-icon.png`; no external fonts or images inside the SVG; no `<script>`, no external references; the SVG must be a single valid, small file (under 3 KB).
+
+- [ ] **Step 1:** Design the candidates as inline SVG in a scratch `logo` view in `/design`, render them with `node scripts/design-shots.mjs logo` (dark and light, 1440x900 and 390x844) at 16, 32, 48, 96 and 180 px, a mock "browser tab" strip (dark and light tab backgrounds) showing the 16px favicon next to the title "Enagram.io", and in-context in the top bar and the login card. LOOK at the screenshots and choose.
+- [ ] **Step 2:** Write `icon.svg`, render `apple-icon.png` (180x180) from it using the isolated headless browser (never the owner's browser, never any Playwright MCP tool), implement `LogoMark.tsx`, wire it into `TopBar` and `LoginCard`, `git rm src/app/favicon.ico`, and finalise the `logo` view (the chosen mark only, at all sizes, plus the tab mock).
+- [ ] **Step 3:** Verify: in dev, `curl -s http://localhost:3100/icon.svg` returns the SVG, the page `<head>` has a `rel="icon"` link pointing to it and an apple-touch-icon link, and `/favicon.ico` is no longer the old file; `npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` pass; add a small unit test `src/lib/ui/icon-svg.test.ts` that reads `src/app/icon.svg` and asserts it has a `viewBox`, is under 3 KB, and contains no `<script`, no `href=` or `url(http`.
+- [ ] **Step 4: Commit**
+
+```bash
+git add -A
+git commit -m "Add the Enagram logo mark, favicon and apple icon"
+```

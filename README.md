@@ -60,6 +60,17 @@ npm test           # node:test; SQL runs against in-process Postgres (PGlite) wi
 npm run smoke      # live check against DATABASE_URL (from .env.local or the environment)
 ```
 
+## Design preview
+
+The `/design` route renders every screen state (empty chat, conversation, approval card, tape strip, login, calendar month and week, event editor) from fixture data, with no sign-in and no API. It exists in development only: in a production build it returns 404.
+
+```bash
+npm run dev                                  # then open http://localhost:3000/design?view=kit&theme=dark
+node scripts/design-shots.mjs [view ...]     # screenshots of the views, dark and light, at 1440x900 and 390x844
+```
+
+Views include `kit`, `chat-shell`, `chat-empty`, `login`, `chat-conversation`, `chat-approval-short`, `chat-approval-long`, `chat-working`, `chat-error`, `tape-all`, `calendar-month`, `calendar-week`, `calendar-empty`, `calendar-loading`, `event-create`, `event-view` and `event-edit`. The runner uses a throwaway browser profile (never yours) and writes PNGs to the git-ignored `design-shots/` folder; options are listed at the top of `scripts/design-shots.mjs` (`--base`, `--size=WxH`, `--section=...`). The palette, themes and type scale live in `src/app/globals.css`.
+
 ## Reliability
 
 - `/api/health` is public and runs a real database query; a daily Vercel cron and a 12-hourly
