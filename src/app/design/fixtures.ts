@@ -138,3 +138,15 @@ export const WORKING_MESSAGES: UIMessage[] = [
   { id: "u1", role: "user", parts: [textPart("Find the latest budget files.")] },
   { id: "a1", role: "assistant", parts: [] },
 ];
+
+// The calendar hover preview: what /api/calendar/summary returns (loaded, empty) or fails with.
+export const PEEK_LOADED = {
+  eventCountThisMonth: 12,
+  upcoming: [
+    { summary: "Quarterly planning with the whole product team", start: "2026-10-12T09:30:00+02:00", htmlLink: "https://calendar.google.com/calendar/event?eid=one" },
+    { summary: "Public holiday", start: "2026-10-15", htmlLink: "https://calendar.google.com/calendar/event?eid=two" },
+    { summary: "Design review", start: "2026-10-21T14:00:00+02:00", htmlLink: "https://calendar.google.com/calendar/event?eid=three" },
+  ],
+};
+export const PEEK_EMPTY = { eventCountThisMonth: 1, upcoming: [] };
+export const PEEK_ERROR = { error: "Google asked you to sign in again. Disconnect and reconnect to continue." };

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowRight, Mail, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, CalendarDays, Mail, Plus, Trash2 } from "lucide-react";
 import { StickerButton } from "../ui/StickerButton";
+import { CalendarPeek } from "../ui/CalendarPeek";
 import { Chip } from "../ui/Chip";
 import { Card } from "../ui/Card";
 import { Stamp } from "../ui/Stamp";
@@ -18,6 +19,9 @@ import { WorkingTicker } from "../ui/WorkingTicker";
 import { LogoView } from "./LogoView";
 import {
   APPROVAL_LONG_MESSAGES,
+  PEEK_EMPTY,
+  PEEK_ERROR,
+  PEEK_LOADED,
   APPROVAL_SHORT_MESSAGES,
   CHAT_SHELL_TAPES,
   CONVERSATION_MESSAGES,
@@ -308,6 +312,44 @@ function TapeAll() {
   );
 }
 
+const loadedPeek = () => Promise.resolve(PEEK_LOADED);
+const emptyPeek = () => Promise.resolve(PEEK_EMPTY);
+const errorPeek = () => Promise.resolve(PEEK_ERROR);
+const neverPeek = () => new Promise<never>(() => {});
+
+// The calendar hover card in each of its states, open from the start. From 768px up it shows under the chip;
+// below that nothing opens (the chip simply links to /calendar), so the 390px picture shows only the chips.
+function CalendarPeekView() {
+  const states = [
+    { label: "loaded: 3 events, one all-day", fetchSummary: loadedPeek },
+    { label: "empty", fetchSummary: emptyPeek },
+    { label: "loading", fetchSummary: neverPeek },
+    { label: "error", fetchSummary: errorPeek },
+  ];
+  return (
+    <div className="flex flex-col gap-10 px-4 py-10 sm:px-8 md:py-14">
+      <header className="flex flex-col gap-3">
+        <p className="font-hand text-2xl text-[var(--ink-soft)]">development only</p>
+        <h1 className="font-display text-5xl md:text-7xl">Calendar peek</h1>
+      </header>
+      <div className="grid gap-x-8 gap-y-6 md:grid-cols-2 xl:grid-cols-4">
+        {states.map((s) => (
+          <section key={s.label} aria-label={s.label} className="flex flex-col gap-4 md:min-h-[28rem]">
+            <p className="font-hand text-2xl text-[var(--ink-soft)]">{s.label}</p>
+            <div>
+              <CalendarPeek defaultOpen fetchSummary={s.fetchSummary}>
+                <Chip href="/calendar" icon={<CalendarDays size={16} strokeWidth={2.5} />}>
+                  Calendar
+                </Chip>
+              </CalendarPeek>
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const CHAT_VIEWS = ["tape-all", "chat-error", "chat-conversation", "chat-approval-short", "chat-approval-long", "chat-working"];
 
 export function DesignPreview({ theme, view, section }: Props) {
@@ -341,6 +383,14 @@ export function DesignPreview({ theme, view, section }: Props) {
     return (
       <div className="min-h-screen overflow-x-clip bg-[var(--bg)] text-[var(--ink)]">
         <CalendarPreview view={view} />
+      </div>
+    );
+  }
+
+  if (view === "calendar-peek") {
+    return (
+      <div className="min-h-screen overflow-x-clip bg-[var(--bg)] text-[var(--ink)]">
+        <CalendarPeekView />
       </div>
     );
   }

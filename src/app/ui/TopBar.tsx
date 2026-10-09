@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, CalendarDays, HardDrive, Mail, Menu, RefreshCw, X } from "lucide-react";
 import { disconnect } from "../actions";
 import { ThemeToggle } from "../chat/ThemeToggle";
+import { CalendarPeek } from "./CalendarPeek";
 import { Chip } from "./Chip";
 import { LogoMark } from "./LogoMark";
 import { StickerButton } from "./StickerButton";
@@ -90,6 +91,14 @@ export function TopBar({ email, documents, sync, variant, defaultOpen = false }:
     };
   }, [open]);
 
+  const calendarChip = (
+    <Chip href="/calendar" icon={<CalendarDays size={16} strokeWidth={2.5} />}>
+      Calendar
+      <LiveDot />
+      <Connected visible />
+    </Chip>
+  );
+
   return (
     <header className="relative z-20 px-3 pt-3 md:px-5 md:pt-4">
       <div className="relative" ref={wrapper}>
@@ -142,11 +151,7 @@ export function TopBar({ email, documents, sync, variant, defaultOpen = false }:
                 <LiveDot />
                 <Connected />
               </Chip>
-              <Chip href="/calendar" icon={<CalendarDays size={16} strokeWidth={2.5} />}>
-                Calendar
-                <LiveDot />
-                <Connected visible />
-              </Chip>
+              {variant === "chat" ? <CalendarPeek>{calendarChip}</CalendarPeek> : calendarChip}
               {variant === "calendar" ? (
                 <Chip tone="sun" href="/" icon={<ArrowLeft size={16} strokeWidth={3} />} className="font-display tracking-wide">
                   CHAT
