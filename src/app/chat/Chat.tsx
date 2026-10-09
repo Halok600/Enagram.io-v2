@@ -8,6 +8,7 @@ import { MessageBubble } from "./MessageBubble";
 import { SystemErrorBanner } from "./SystemErrorBanner";
 import { EmptyState } from "./EmptyState";
 import { extractSources } from "./extractSources";
+import { collectEventTitles, getApprovalCards, hasAwaitingApproval } from "./approvalView";
 
 export function Chat({
   name,
@@ -16,6 +17,7 @@ export function Chat({
   userTimestamps,
   assistantTimestamps,
   onSend,
+  onApprovalResponse,
   systemError,
   onRetry,
 }: {
@@ -25,16 +27,20 @@ export function Chat({
   userTimestamps: number[];
   assistantTimestamps: Record<string, number>;
   onSend: (text: string) => void;
+  onApprovalResponse: (approvalId: string, approved: boolean) => void;
   systemError: string | null;
   onRetry: () => void;
 }) {
   const [input, setInput] = useState("");
   const isBusy = status === "submitted" || status === "streaming";
   const isEmpty = messages.length === 0 && !systemError;
+  // A write is waiting for Approve / Deny: sending a new message now would leave it unanswered.
+  const awaitingApproval = hasAwaitingApproval(messages);
+  const inputLocked = isBusy || awaitingApproval;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || isBusy) return;
+    if (!input.trim() || inputLocked) return;
     onSend(input);
     setInput("");
   }
@@ -47,6 +53,7 @@ export function Chat({
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-panel)] p-8">
           {(() => {
             const userMessageIds = messages.filter((m) => m.role === "user").map((m) => m.id);
+            const eventTitles = collectEventTitles(messages);
 
             return messages.map((message) => {
               const isUser = message.role === "user";
@@ -60,7 +67,8 @@ export function Chat({
               // tokens arrived). Once we're no longer busy, an empty bubble
               // with nothing in it is just visual noise — the error banner
               // below explains what happened instead.
-              if (!isUser && !text && !isBusy) return null;
+              const approvals = isUser ? [] : getApprovalCards(message.parts, eventTitles);
+              if (!isUser && !text && !isBusy && approvals.length === 0) return null;
 
               return (
                 <MessageBubble
@@ -68,6 +76,8 @@ export function Chat({
                   role={isUser ? "user" : "assistant"}
                   text={text}
                   sources={extractSources(message.parts)}
+                  approvals={approvals}
+                  onApprovalResponse={onApprovalResponse}
                   pending={isBusy}
                   timestamp={
                     isUser
@@ -92,15 +102,15 @@ export function Chat({
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask your brain..."
-          disabled={isBusy}
+          placeholder={awaitingApproval ? "Approve or deny the action above to continue" : "Ask your brain..."}
+          disabled={inputLocked}
           className="flex-1 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-panel)] px-5 py-4 text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] disabled:opacity-50"
         />
         <motion.button
           type="submit"
-          disabled={isBusy || !input.trim()}
-          whileHover={isBusy || !input.trim() ? undefined : { y: -1, boxShadow: "var(--shadow-md)" }}
-          whileTap={isBusy || !input.trim() ? undefined : { scale: 0.96 }}
+          disabled={inputLocked || !input.trim()}
+          whileHover={inputLocked || !input.trim() ? undefined : { y: -1, boxShadow: "var(--shadow-md)" }}
+          whileTap={inputLocked || !input.trim() ? undefined : { scale: 0.96 }}
           transition={{ duration: 0.15 }}
           aria-label="Send"
           className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--accent-strong)] text-white disabled:opacity-40 disabled:hover:shadow-none"

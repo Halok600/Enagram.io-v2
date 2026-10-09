@@ -48,6 +48,7 @@ Browser ── Vercel (Next.js 16) ──┬── Google APIs (Gmail / Drive / 
 | `DATABASE_URL` | Supabase Postgres connection string (the transaction pooler, port 6543) |
 | `CRON_SECRET` | Guards `/api/keepalive`, called daily by Vercel Cron |
 | `ALLOWED_EMAILS` | Comma-separated Google account emails allowed to sign in and call the API. Set it in Vercel; unset or empty = unrestricted; any other value with no valid entries (for example `,` or only spaces) = nobody can sign in. **Set it before publishing the Google OAuth app.** |
+| `TOOL_APPROVAL_SECRET` | Optional. Signs the chat's Approve/Deny requests so a forged "approved" message from the browser is rejected. Generate with `openssl rand -base64 32` and set **one** value in Vercel (it must be identical on every instance, since one instance signs and another may verify). Unset or blank = approvals still work, just unsigned. |
 
 ## Develop
 
@@ -72,12 +73,15 @@ npm run smoke      # live check against DATABASE_URL (from .env.local or the env
 
 ## Known limitations
 
-- The chat tools can delete a Google Calendar event or save a preference without asking for
-  confirmation first. Text inside an email or document that the agent reads could therefore
-  try to trigger one of them (prompt injection). Mitigations in place: sign-in is limited to
-  an allowlist (`ALLOWED_EMAILS`) and the data API routes require the owner's session; Gmail replies are saved
-  as drafts and never sent; created events never invite anyone. An approval step for
-  destructive tool calls is planned hardening.
+- Anything that writes needs your click. Saving or forgetting a preference and creating, changing
+  or deleting a calendar event stop in the chat with an Approve / Deny card, and nothing runs until
+  you press Approve. So text inside an email or document cannot make the assistant change your data
+  on its own (prompt injection). Gmail replies are only ever saved as drafts for you to review, and
+  created events never invite anyone.
+- Reading is still automatic. The assistant searches your mail, files and calendar without asking,
+  so text inside a message it reads could still steer what it says or searches for (it cannot
+  change anything without your Approve). Sign-in is limited to an allowlist (`ALLOWED_EMAILS`) and
+  the data API routes require the owner's session.
 
 ## License
 

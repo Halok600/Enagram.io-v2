@@ -37,7 +37,14 @@ means and the one fix.
    - If an answer says it ran out of time, ask a narrower question (name the sender
      or subject).
 
-5. **Optional but recommended:** record a 60-second screen capture of steps 2-4 working
+5. **Ask it to save a preference** ("remember that I prefer short replies"). An Approve / Deny
+   card must appear and nothing is saved yet; **Deny** does nothing, **Approve** saves it.
+   - No card and it saved straight away: the approval policy is not active; check the
+     deployed build includes `TOOL_APPROVAL_POLICY` in `src/app/api/chat/route.ts`.
+   - Approve is followed by an error about an approval signature: `TOOL_APPROVAL_SECRET` differs
+     between instances or changed mid-conversation; set one value in Vercel, redeploy, and ask again.
+
+6. **Optional but recommended:** record a 60-second screen capture of steps 2-4 working
    and link it from the README, as a fallback if the live site is ever unavailable
    during an interview.
 

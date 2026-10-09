@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useChat, type UseChatHelpers } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses, type UIMessage } from "ai";
 import { Sidebar } from "./Sidebar";
 import { Chat } from "./Chat";
 import { runFullSync } from "../syncClient";
 import { DbStatusBanner } from "./DbStatusBanner";
 import { friendlyClientError } from "@/lib/client-errors";
+import { isToolPartInFlight } from "./approvalView";
 
 const TOOL_TYPES = [
   "tool-search_gmail",
@@ -44,7 +45,8 @@ function computeActiveTools(messages: UIMessage[]): string[] {
   for (const part of last.parts) {
     if (!(TOOL_TYPES as readonly string[]).includes(part.type)) continue;
     const state = (part as { state?: string }).state;
-    if (state === "output-available" || state === "output-error") continue;
+    // Waiting on the owner's Approve/Deny, or already finished/denied: not "running".
+    if (!isToolPartInFlight(state)) continue;
     active.add(TOOL_NAME_BY_PART_TYPE[part.type as (typeof TOOL_TYPES)[number]]);
   }
   return Array.from(active);
@@ -63,6 +65,9 @@ export function Workspace({ email, name }: { email: string; name?: string }) {
 
   const chat: UseChatHelpers<UIMessage> = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
+    // Once every pending write in the last step has an Approve/Deny answer, send the
+    // conversation back so the server runs (or skips) the tool and the model carries on.
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
     // Stamps the assistant message's timestamp once it finishes streaming —
     // this DOES give us the real final id, unlike the user side above.
     onFinish: ({ message }) => {
@@ -102,6 +107,11 @@ export function Workspace({ email, name }: { email: string; name?: string }) {
     void chat.sendMessage({ text });
   }
 
+  function respondToApproval(approvalId: string, approved: boolean) {
+    setSystemError(null);
+    void chat.addToolApprovalResponse({ id: approvalId, approved });
+  }
+
   function retryLastMessage() {
     setSystemError(null);
     void chat.regenerate();
@@ -119,6 +129,7 @@ export function Workspace({ email, name }: { email: string; name?: string }) {
           userTimestamps={userTimestamps}
           assistantTimestamps={assistantTimestamps}
           onSend={sendStampedMessage}
+          onApprovalResponse={respondToApproval}
           systemError={systemError}
           onRetry={retryLastMessage}
         />

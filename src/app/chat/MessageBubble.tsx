@@ -3,6 +3,8 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import { Brain, User } from "lucide-react";
 import { SourceChip, type Source } from "./SourceChip";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { ApprovalCard } from "./ApprovalCard";
+import type { ApprovalCardModel } from "./approvalView";
 
 const markdownComponents: Components = {
   a: ({ href, children }) => (
@@ -57,12 +59,16 @@ export function MessageBubble({
   role,
   text,
   sources,
+  approvals = [],
+  onApprovalResponse,
   pending,
   timestamp,
 }: {
   role: Role;
   text: string;
   sources: Source[];
+  approvals?: ApprovalCardModel[];
+  onApprovalResponse?: (approvalId: string, approved: boolean) => void;
   pending: boolean;
   timestamp?: number;
 }) {
@@ -94,9 +100,15 @@ export function MessageBubble({
             <div>
               <ReactMarkdown components={markdownComponents}>{text}</ReactMarkdown>
             </div>
-          ) : pending ? (
+          ) : pending && approvals.length === 0 ? (
             <ThinkingIndicator />
           ) : null}
+
+          {!isUser &&
+            onApprovalResponse &&
+            approvals.map((card) => (
+              <ApprovalCard key={card.toolCallId} card={card} onRespond={onApprovalResponse} />
+            ))}
 
           {!isUser && sources.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2 border-t border-[var(--border)] pt-3">

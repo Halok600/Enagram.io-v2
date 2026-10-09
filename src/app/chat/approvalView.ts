@@ -6,8 +6,8 @@ import { isApprovalGatedTool } from "../../lib/query/approval.ts";
  * React component (ApprovalCard.tsx) only draws what this returns.
  */
 
-type AnyPart = { type: string };
-type AnyMessage = { role: string; parts: ReadonlyArray<AnyPart> };
+type AnyPart = { type: string; [key: string]: unknown };
+type AnyMessage = { id?: string; role: string; parts: ReadonlyArray<AnyPart> };
 
 type LoosePart = {
   type: string;
@@ -27,6 +27,8 @@ export type ApprovalCardModel = {
   /** Only set while the card is waiting: the id addToolApprovalResponse needs. */
   approvalId?: string;
   sentence: string;
+  /** Full-length payload text (preference, description) to show under the sentence. */
+  details: ApprovalDetail[];
   status: ApprovalCardStatus;
   /** Extra line for a failed action (the tool's own error message). */
   detail?: string;
@@ -56,19 +58,33 @@ function when(value: unknown): string | undefined {
 
 const quote = (s: string) => `"${s}"`;
 
-/** What the owner is being asked to allow, as one sentence. Never throws, whatever the model sent. */
+/** A block of text shown in full on the card, line breaks kept (where an injected message could hide a payload). */
+export type ApprovalDetail = { label: string; text: string };
+
+/** The raw string field, untouched (not trimmed or clipped), or undefined if absent/blank/not a string. */
+function full(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+/** Shown in full when the sentence had to clip or flatten it, so nothing is ever hidden behind an ellipsis. */
+function ifShortened(label: string, value: unknown): ApprovalDetail[] {
+  const raw = full(value);
+  return raw !== undefined && text(raw) !== raw ? [{ label, text: raw }] : [];
+}
+
+/**
+ * What the owner is being asked to allow, as one short sentence. Free-text payloads
+ * (preference text, descriptions) are NOT in the sentence: describeDetails returns them in
+ * full and the card draws them beneath it. Never throws, whatever the model sent.
+ */
 export function describeAction(toolName: string, input: unknown, eventTitle?: string): string {
   const i = asRecord(input);
 
   switch (toolName) {
-    case "save_preference": {
-      const fact = text(i.fact);
-      return fact ? `Save preference: ${quote(fact)}` : "Save a preference (no text given)";
-    }
-    case "forget_preference": {
-      const fact = text(i.fact);
-      return fact ? `Forget preference matching: ${quote(fact)}` : "Forget a preference (no text given)";
-    }
+    case "save_preference":
+      return full(i.fact) ? "Save this preference:" : "Save a preference (no text given)";
+    case "forget_preference":
+      return full(i.fact) ? "Forget saved preferences matching:" : "Forget a preference (no text given)";
     case "create_calendar_event": {
       const summary = text(i.summary);
       const start = when(i.startDateTime);
@@ -82,29 +98,64 @@ export function describeAction(toolName: string, input: unknown, eventTitle?: st
       return s;
     }
     case "update_calendar_event": {
-      const id = text(i.eventId);
-      const label = text(eventTitle) ? quote(text(eventTitle) as string) : id;
+      const label = eventLabel(i.eventId, eventTitle);
       const changes: string[] = [];
       const summary = text(i.summary);
       const start = when(i.startDateTime);
       const end = when(i.endDateTime);
       const location = text(i.location);
-      const description = text(i.description);
       if (summary) changes.push(`title to ${quote(summary)}`);
       if (start) changes.push(`start to ${start}`);
       if (end) changes.push(`end to ${end}`);
       if (location) changes.push(`location to ${quote(location)}`);
-      if (description) changes.push(`description to ${quote(description)}`);
+      if (full(i.description)) changes.push("description (shown below)");
       const head = label ? `Update calendar event ${label}` : "Update a calendar event (no event given)";
       return changes.length > 0 ? `${head}: ${changes.join(", ")}` : `${head} (no changes given)`;
     }
     case "delete_calendar_event": {
-      const id = text(i.eventId);
-      const label = text(eventTitle) ? quote(text(eventTitle) as string) : id;
+      const label = eventLabel(i.eventId, eventTitle);
       return label ? `Delete calendar event ${label}?` : "Delete a calendar event (no event given)";
     }
     default:
       return `Run ${toolName}`;
+  }
+}
+
+/** Title AND id, so two events with the same title cannot look identical. */
+function eventLabel(eventId: unknown, eventTitle?: string): string | undefined {
+  const id = text(eventId);
+  const title = text(eventTitle);
+  if (title && id) return `${quote(title)} (id ${id})`;
+  return title ? quote(title) : id;
+}
+
+/** The full, unclipped free-text values behind the sentence, for the card's scrollable block. */
+export function describeDetails(toolName: string, input: unknown): ApprovalDetail[] {
+  const i = asRecord(input);
+  const pick = (label: string, value: unknown): ApprovalDetail[] => {
+    const raw = full(value);
+    return raw === undefined ? [] : [{ label, text: raw }];
+  };
+
+  switch (toolName) {
+    case "save_preference":
+      return pick("Preference text", i.fact);
+    case "forget_preference":
+      return pick("Matching text", i.fact);
+    case "create_calendar_event":
+      return [
+        ...ifShortened("Full title", i.summary),
+        ...ifShortened("Full location", i.location),
+        ...pick("Description", i.description),
+      ];
+    case "update_calendar_event":
+      return [
+        ...ifShortened("Full title", i.summary),
+        ...ifShortened("Full location", i.location),
+        ...pick("New description", i.description),
+      ];
+    default:
+      return [];
   }
 }
 
@@ -175,6 +226,7 @@ export function getApprovalCards(
       toolName,
       approvalId: outcome.status === "pending" ? part.approval?.id : undefined,
       sentence: describeAction(toolName, part.input, eventId ? eventTitles.get(eventId) : undefined),
+      details: describeDetails(toolName, part.input),
       status: outcome.status,
       detail: outcome.detail,
     });
