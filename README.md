@@ -73,6 +73,11 @@ npm run smoke      # live check against DATABASE_URL (from .env.local or the env
 
 ## Known limitations
 
+- On the Gemini free tier the first full sync takes several minutes. Embedding is paced to fit the
+  free quota (small batches, a 40 s pause between rounds, 60 s after a quota error), so keep the
+  page open while it runs; if the limit is still hit three rounds in a row it stops and says so,
+  and pressing Sync now later continues where it left off. Keyword search works the whole time.
+  Turning on billing for the Gemini API key's project removes the wait.
 - Anything that writes needs your click. Saving or forgetting a preference and creating, changing
   or deleting a calendar event stop in the chat with an Approve / Deny card, and nothing runs until
   you press Approve. So text inside an email or document cannot make the assistant change your data

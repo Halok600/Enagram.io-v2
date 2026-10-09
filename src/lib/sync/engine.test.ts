@@ -7,7 +7,17 @@ import type { Db } from "../store/db.ts";
 import { countDocuments, countPending, upsertDocuments } from "../store/documents.ts";
 import { relatedTo, replaceLinks } from "../store/links.ts";
 import { getMeta } from "../store/meta.ts";
-import { runEmbedPhase, runFetchPhase, type FetchedDocuments, type SyncDeps } from "./engine.ts";
+import { APICallError, RetryError } from "ai";
+import {
+  EMBED_BATCH_CHARS,
+  EMBED_BATCH_SIZE,
+  EMBED_REQUEST_CHARS,
+  runEmbedPhase,
+  runFetchPhase,
+  takeWithinCharCaps,
+  type FetchedDocuments,
+  type SyncDeps,
+} from "./engine.ts";
 
 function bd(id: string, source: BrainDocument["source"], extra: Partial<BrainDocument> = {}): BrainDocument {
   return {
@@ -392,4 +402,95 @@ test("a truncated calendar list stores what it has but never deletes calendar ro
   fetched.current = { gmail: [], drive: [], calendar: [bd("calendar:a", "calendar")] };
   await runFetchPhase(deps);
   assert.deepEqual(await stored(db), ["calendar:a"]);
+});
+
+const quotaError = () =>
+  new RetryError({
+    message: "Failed after 3 attempts",
+    reason: "maxRetriesExceeded",
+    errors: [new APICallError({ message: "You exceeded your current quota", url: "https://x.test", requestBodyValues: {}, statusCode: 429 })],
+  });
+
+const bigDocs = (n: number, bodyChars: number): FetchedDocuments => ({
+  gmail: Array.from({ length: n }, (_, i) => bd(`gmail:${i}`, "gmail", { body: "x".repeat(bodyChars) })),
+  drive: [],
+  calendar: [],
+});
+
+test("a quota error stops the phase, keeps earlier batches, leaves the failed batch pending and flags rateLimited", async () => {
+  await quietly(async () => {
+    let calls = 0;
+    const { db, deps } = await setup(
+      { current: gmailOnly(5) },
+      {
+        embedDocuments: async (texts) => {
+          if (++calls === 2) throw quotaError();
+          return texts.map(() => unitVector(0));
+        },
+      },
+    );
+    await runFetchPhase(deps);
+    const progress = await runEmbedPhase(deps, 40_000, 2);
+    assert.equal(calls, 2, "no further batch is tried after the quota error");
+    assert.equal(progress.rateLimited, true);
+    assert.equal(progress.embedded, 2);
+    assert.equal(progress.remaining, 3);
+    assert.equal(await countPending(db), 3);
+  });
+});
+
+test("any other embedding failure does not set rateLimited", async () => {
+  await quietly(async () => {
+    const { deps } = await setup(
+      { current: gmailOnly(3) },
+      {
+        embedDocuments: async () => {
+          throw new Error("socket hang up");
+        },
+      },
+    );
+    await runFetchPhase(deps);
+    const progress = await runEmbedPhase(deps);
+    assert.ok(!progress.rateLimited);
+  });
+});
+
+test("a clean embed phase does not report rateLimited", async () => {
+  const { deps } = await setup({ current: gmailOnly(2) });
+  await runFetchPhase(deps);
+  const progress = await runEmbedPhase(deps);
+  assert.ok(!progress.rateLimited);
+});
+
+test("by default a batch holds at most 8 documents", async () => {
+  const { deps, embedCalls } = await setup({ current: gmailOnly(20) });
+  await runFetchPhase(deps);
+  const progress = await runEmbedPhase(deps);
+  assert.equal(EMBED_BATCH_SIZE, 8);
+  assert.deepEqual(embedCalls.map((c) => c.length), [8, 8, 4]);
+  assert.equal(progress.remaining, 0);
+});
+
+test("a batch stops at 30,000 characters and a request at 60,000; the rest stays pending", async () => {
+  const { deps, embedCalls } = await setup({ current: bigDocs(20, 4_000) });
+  await runFetchPhase(deps);
+  const progress = await runEmbedPhase(deps);
+  const sizes = embedCalls.map((c) => c.reduce((n, t) => n + t.length, 0));
+  assert.equal(EMBED_BATCH_CHARS, 30_000);
+  assert.equal(EMBED_REQUEST_CHARS, 60_000);
+  assert.ok(sizes.every((n) => n <= EMBED_BATCH_CHARS), `batch sizes ${sizes}`);
+  assert.ok(sizes.reduce((a, b) => a + b, 0) <= EMBED_REQUEST_CHARS, `request total ${sizes}`);
+  assert.deepEqual(embedCalls.map((c) => c.length), [7, 7], "7 x ~4k chars per batch, then the request cap is reached");
+  assert.equal(progress.embedded, 14);
+  assert.equal(progress.remaining, 6, "time budget was left, but the request cap ended the loop");
+});
+
+test("takeWithinCharCaps always takes at least one document for a fresh request, never past the request cap", () => {
+  const item = (n: number) => ({ id: `d${n}`, hash: "h", text: "y".repeat(n) });
+  // an oversized first document is still taken so the queue cannot jam
+  assert.deepEqual(takeWithinCharCaps([item(40_000), item(10)], 30_000, 60_000, true).map((i) => i.id), ["d40000"]);
+  // not the first batch of the request, and the first document does not fit what is left: take none
+  assert.deepEqual(takeWithinCharCaps([item(5_000)], 30_000, 4_000, false), []);
+  // fills up to the tighter of the two caps
+  assert.deepEqual(takeWithinCharCaps([item(10_000), item(10_000), item(10_000)], 30_000, 25_000, false).map((i) => i.id), ["d10000", "d10000"]);
 });

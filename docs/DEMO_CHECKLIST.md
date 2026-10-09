@@ -31,6 +31,9 @@ means and the one fix.
    - "Search by meaning is still catching up (some documents are not indexed yet)" → the sync
      ran out of rounds or the embedding service was slow; keyword search already works;
      press Sync again in a minute.
+   - On the Gemini free tier the first full sync takes several minutes: keep the page open, it
+     pauses between rounds ("Waiting 40s so Gemini's free-tier limit can recover..."). Billing on
+     the key's project removes the wait. Do the first sync well before the demo.
 
 4. **Ask two questions:** "What was the last email about an interview?" and "What's on my calendar
    this week?" Each should answer within ~30 seconds with sources.

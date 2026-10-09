@@ -5,12 +5,14 @@ import {
   countPending,
   deleteCalendarExcept,
   pendingEmbeddings,
+  type PendingEmbedding,
   setEmbeddings,
   upsertDocuments,
 } from "../store/documents.ts";
 import { rebuildLinks } from "../store/links.ts";
 import { setMeta } from "../store/meta.ts";
 import { isUsableVector } from "../store/vector.ts";
+import { isQuotaError } from "./quota.ts";
 import { toStoredDocument } from "./to-stored.ts";
 import { withTimeout } from "./with-timeout.ts";
 
@@ -40,6 +42,8 @@ export type SyncProgress = {
   changed: number;
   embedded: number;
   remaining: number;
+  /** The embedding provider's quota stopped this embed round; the failed batch stays pending. */
+  rateLimited?: boolean;
 };
 
 /**
@@ -47,9 +51,44 @@ export type SyncProgress = {
  * call begun just inside it (EMBED_CALL_TIMEOUT_MS) still ends before Vercel's 60s limit.
  */
 export const EMBED_BUDGET_MS = 35_000;
-const EMBED_BATCH_SIZE = 20;
+/**
+ * Free-tier arithmetic. Gemini's free embedding tier allows roughly 30k tokens per minute (plus
+ * request and daily caps). chars / 3 is a deliberately conservative token estimate, so 30,000
+ * chars is at most ~10k tokens per call and 60,000 chars is at most ~20k tokens per HTTP
+ * request. The client waits 40s between rounds (see syncClient.ts), so a minute never sees more
+ * than about 20k tokens, with headroom for the estimate being off.
+ */
+export const EMBED_BATCH_SIZE = 8;
+/** Most embedding text sent in one embedding call (at least one document is always taken). */
+export const EMBED_BATCH_CHARS = 30_000;
+/** Most embedding text sent in one HTTP request in total, whatever time budget is left. */
+export const EMBED_REQUEST_CHARS = 60_000;
 /** One embedding call; with the 35s budget a call started just inside it still ends before ~50s. */
 export const EMBED_CALL_TIMEOUT_MS = 15_000;
+
+/**
+ * Trims a batch to the character caps, keeping its order. Documents not taken stay pending and
+ * are picked up by the next loop iteration or request. `firstOfRequest` means nothing has been
+ * sent yet in this request: then one document is always taken, so an oversized one cannot jam
+ * the queue. Otherwise a first document that does not fit what is left of the request is not taken.
+ */
+export function takeWithinCharCaps(
+  batch: PendingEmbedding[],
+  batchChars: number,
+  requestCharsLeft: number,
+  firstOfRequest: boolean,
+): PendingEmbedding[] {
+  const limit = Math.min(batchChars, requestCharsLeft);
+  const taken: PendingEmbedding[] = [];
+  let chars = 0;
+  for (const item of batch) {
+    if (chars + item.text.length > limit) break;
+    taken.push(item);
+    chars += item.text.length;
+  }
+  if (taken.length === 0 && firstOfRequest && batch.length > 0) return [batch[0]];
+  return taken;
+}
 
 /**
  * Phase 1: pull from Google, store text, and relink. Cheap and idempotent:
@@ -91,10 +130,12 @@ export async function runFetchPhase(deps: SyncDeps): Promise<SyncProgress> {
 
 /**
  * Phase 2: embed pending documents until the time budget is spent. Failures
- * (e.g. free-tier rate limits, a slow call, a failed write) are logged, stop the
- * phase with the progress made so far, and leave rows pending; keyword search
- * works on them meanwhile, so a failed embedding never hides data. A malformed
- * vector skips just that document.
+ * (a slow call, a failed write) are logged, stop the phase with the progress made
+ * so far, and leave rows pending; keyword search works on them meanwhile, so a
+ * failed embedding never hides data. A quota error (see isQuotaError) does the same
+ * and also returns `rateLimited: true` so the client can wait and say why. A
+ * malformed vector skips just that document. The request also stops once
+ * EMBED_REQUEST_CHARS of text have been sent, even with budget left.
  */
 export async function runEmbedPhase(
   deps: SyncDeps,
@@ -107,11 +148,16 @@ export async function runEmbedPhase(
   const now = deps.now ?? Date.now;
   const start = startedAt ?? now();
   let embedded = 0;
+  let charsSent = 0;
+  let rateLimited = false;
   const skipped = new Set<string>(); // got a malformed vector; left pending, not retried this call
 
-  while (now() - start < budgetMs) {
-    const batch = await pendingEmbeddings(deps.db, batchSize, [...skipped]);
+  while (now() - start < budgetMs && charsSent < EMBED_REQUEST_CHARS) {
+    const pending = await pendingEmbeddings(deps.db, batchSize, [...skipped]);
+    if (pending.length === 0) break;
+    const batch = takeWithinCharCaps(pending, EMBED_BATCH_CHARS, EMBED_REQUEST_CHARS - charsSent, charsSent === 0);
     if (batch.length === 0) break;
+    charsSent += batch.reduce((n, b) => n + b.text.length, 0);
 
     let vectors: number[][];
     try {
@@ -121,7 +167,12 @@ export async function runEmbedPhase(
         "Embedding call",
       );
     } catch (err) {
-      console.error("Embedding batch failed; documents stay pending", err);
+      if (isQuotaError(err)) {
+        console.error("Embedding quota reached; documents stay pending", err);
+        rateLimited = true;
+      } else {
+        console.error("Embedding batch failed; documents stay pending", err);
+      }
       break;
     }
     if (vectors.length !== batch.length) {
@@ -154,5 +205,6 @@ export async function runEmbedPhase(
     changed: 0,
     embedded,
     remaining: await countPending(deps.db),
+    ...(rateLimited ? { rateLimited: true } : {}),
   };
 }

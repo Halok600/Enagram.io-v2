@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { runFullSync, type FullSyncResult } from "./syncClient";
+import { runFullSync, syncStopMessage, waitingMessage, type FullSyncResult } from "./syncClient";
 
 type SyncState = "idle" | "loading" | "done" | "error";
 
@@ -11,14 +11,17 @@ export function SyncButton() {
   const [result, setResult] = useState<FullSyncResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
+  const [waiting, setWaiting] = useState<string | null>(null);
 
   async function handleSync() {
     setState("loading");
     setError(null);
     setProgress(null);
+    setWaiting(null);
     try {
       const final = await runFullSync({
         onProgress: (p) => setProgress(p.remaining > 0 ? `${p.remaining} document(s) left to index...` : null),
+        onWait: (wait) => setWaiting(wait ? waitingMessage(wait) : null),
       });
       setResult(final);
       setState("done");
@@ -27,6 +30,8 @@ export function SyncButton() {
       setState("error");
     }
   }
+
+  const stopMessage = state === "done" && result ? syncStopMessage(result) : null;
 
   return (
     <div className="flex flex-col gap-2">
@@ -46,6 +51,9 @@ export function SyncButton() {
       {state === "loading" && progress && (
         <p className="text-xs leading-snug text-[var(--text-tertiary)]">{progress}</p>
       )}
+      {state === "loading" && waiting && (
+        <p className="text-xs leading-snug text-[var(--text-tertiary)]">{waiting}</p>
+      )}
 
       {state === "done" && result && (
         <>
@@ -56,12 +64,7 @@ export function SyncButton() {
             {result.documents} document(s)
             {result.changed > 0 ? `, ${result.changed} updated` : " (no changes)"}.
           </p>
-          {result.stalled && (
-            <p className="text-xs leading-snug text-[var(--danger)]">
-              ⚠ Search by meaning is still catching up (some documents are not indexed yet). Keyword search
-              already works. Press Sync again in a minute.
-            </p>
-          )}
+          {stopMessage && <p className="text-xs leading-snug text-[var(--danger)]">⚠ {stopMessage}</p>}
         </>
       )}
 
