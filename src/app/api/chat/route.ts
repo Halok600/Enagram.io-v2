@@ -10,6 +10,7 @@ import {
 import { requireSession } from "@/lib/auth-guard";
 import { createBrainTools } from "@/lib/query/tools";
 import { CHAT_MODEL_ID, getSystemPrompt } from "@/lib/query/config";
+import { TOOL_APPROVAL_POLICY, resolveToolApprovalSecret } from "@/lib/query/approval";
 import { createToolBudget } from "@/lib/query/tool-budget";
 import { getBrain } from "@/lib/store/service";
 
@@ -74,6 +75,12 @@ export async function POST(req: Request) {
       messages: await convertToModelMessages(messages),
       tools: createBrainTools(session.accessToken, session.user?.email ?? ""),
       stopWhen: stepCountIs(5),
+      // Write tools stop and wait for an Approve click in the chat (see approval.ts), so text
+      // inside an email cannot make the assistant change data on its own.
+      toolApproval: TOOL_APPROVAL_POLICY,
+      // Signs each approval request so a forged "approved" message from the browser is rejected.
+      // Optional: unset or blank keeps approvals working, just unsigned.
+      experimental_toolApprovalSecret: resolveToolApprovalSecret(process.env.TOOL_APPROVAL_SECRET),
       // See tool-budget.ts: once ~28s are spent, force an answer rather than
       // let more search steps run into Vercel's 60s kill with nothing shown.
       prepareStep: createToolBudget(systemPrompt, startedAt),

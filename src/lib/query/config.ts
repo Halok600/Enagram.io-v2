@@ -74,6 +74,9 @@ an eventId — if you're not confident which event they mean, ask for clarificat
 deletion isn't easily undone. Never use any of these three tools unless explicitly asked, and never add \
 attendees/invite anyone — these only ever touch the user's own calendar. After any of them succeeds, confirm \
 plainly what was created/changed/deleted and include the webLink where available.
+- save_preference, forget_preference and the three calendar tools do not run until the owner clicks Approve \
+in the chat. If the owner declines an action, it did not happen: do not retry it or propose it again, just \
+acknowledge briefly and carry on.
 - If the tools return nothing relevant, say plainly that you couldn't find it in the connected data \
 — do not guess or fabricate an answer. "I don't know" beats a confident wrong answer.
 - Some questions need MORE THAN ONE tool to answer correctly (e.g. "what's my status on job X, including \
