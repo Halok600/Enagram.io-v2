@@ -8,8 +8,9 @@ export default async function CalendarPage() {
     redirect("/");
   }
 
-  // No sync props are needed here: after a calendar create/update/delete, the mutating API
-  // routes call reingestCalendar (src/lib/sync/calendar.ts) server-side, so this client
-  // component only renders the board.
+  // The board owns its own useSync/useHealth for the shared top bar (the Sync button and the
+  // documents-indexed note), so no sync props are passed from here. Calendar create/update/delete
+  // still re-ingest server-side: the mutating API routes call reingestCalendar
+  // (src/lib/sync/calendar.ts).
   return <CalendarBoard email={session.user?.email ?? ""} />;
 }

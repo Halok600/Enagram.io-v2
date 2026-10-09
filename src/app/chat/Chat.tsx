@@ -114,7 +114,7 @@ export function Chat({
             disabled={inputLocked}
             className="min-h-14 min-w-0 flex-1 rounded-[var(--radius-card)] bg-[var(--panel)] px-3 text-lg text-[var(--ink)] placeholder:text-[var(--ink-soft)] disabled:opacity-60"
           />
-          <StickerButton type="submit" tone="cobalt" size="lg" disabled={inputLocked || !input.trim()} aria-label="Send">
+          <StickerButton type="submit" tone="cobalt" size="lg" disabled={inputLocked || !input.trim()} aria-label="GO! Send message">
             GO!
           </StickerButton>
         </Card>

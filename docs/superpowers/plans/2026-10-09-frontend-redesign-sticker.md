@@ -22,7 +22,7 @@
 - **Type (spec 4.3):** display = Archivo variable, width axis wide, weight 900, uppercase, tight leading; body = DM Sans 16px / 1.55; annotation = Caveat (short handwritten notes only).
 - **Accessibility (spec 4.4):** WCAG AA contrast for every text/background token pair in both themes (enforced by a test), 44px minimum touch targets, visible focus ring, `aria-live="polite"` on the tape strip, status never conveyed by colour alone.
 - **Not copied from the owner's portfolio:** no lime or orange-red palette, no film grain, no corner-bracket "detection box", no mono-caps-everywhere labels, no row-index layout.
-- **Branch and attribution:** all work on branch `redesign`; `main` is not touched. Commits are authored by the already-configured git identity (Priyanshu Kumar Tiwari <143282195+Halok600@users.noreply.github.com>) and must contain NO `Co-Authored-By`, NO "Generated with Claude Code" line, no attribution of any kind. Never push; never change git config; no `rm -rf`; temp files in the session scratchpad; no personal data (names, emails, employers) in code, fixtures or docs.
+- **Branch and attribution:** all work on branch `redesign`; `main` is not touched. Commits are authored by the already-configured git identity (the owner's noreply identity) and must contain NO `Co-Authored-By`, NO "Generated with Claude Code" line, no attribution of any kind. Never push; never change git config; no `rm -rf`; temp files in the session scratchpad; no personal data (names, emails, employers) in code, fixtures or docs.
 
 ## Rulings made while planning
 
@@ -430,7 +430,7 @@ import assert from "node:assert/strict";
 import { SUGGESTIONS, firstName } from "./greeting.ts";
 
 test("firstName takes the first word, trimmed", () => {
-  assert.equal(firstName("  Priyanshu Kumar Tiwari "), "Priyanshu");
+  assert.equal(firstName("  Sam Example "), "Sam");
 });
 
 test("firstName returns null for missing or blank names", () => {
@@ -830,3 +830,26 @@ git commit -m "Add the development-only design preview and screenshot runner; re
 git add -A
 git commit -m "Add the Enagram logo mark, favicon and apple icon"
 ```
+
+---
+
+### Task 10: Bring back the calendar hover preview ("CalendarPeek")
+
+**Owner request (2026-10-09, after go-live):** the old sidebar showed a small card when hovering the Calendar row: the number of events this month and the next 3 upcoming events. It was dropped in the redesign by omission. Bring it back, restyled, as a hover/focus popover on the Calendar chip of the top bar. Designer guidance already given to the owner: open on hover OR keyboard focus (never hover alone), keep it small (3 events), sticker-card styling, live data, no preview on phones (the chip simply links to /calendar there).
+
+**Old behaviour to reproduce (from `git show 502b071:src/app/components/CalendarHoverCard.tsx`):** on open it calls `GET /api/calendar/summary` (route still exists and is unchanged; it returns `{ eventCountThisMonth: number, upcoming: { summary: string; start: string; htmlLink: string }[] }` or, on failure, `{ error: string }` with a 500), shows "This month's activity", the count with "events this month", up to 3 upcoming events with title and start (all-day events show the date only, timed events date and time; use `isDateOnly` and `parseEventDate` from `@/lib/calendar-date`), "Nothing upcoming this month." when empty, a "Loading..." state and the API's friendly error text (fallback "Couldn't load calendar summary").
+
+**Files:**
+- Create: `src/lib/ui/peek.ts`, `src/lib/ui/peek.test.ts` (pure data shaping), `src/app/ui/CalendarPeek.tsx` (client component)
+- Modify: `src/app/ui/TopBar.tsx` (the Calendar chip is wrapped by `CalendarPeek` only when `variant === "chat"`), `src/app/design/DesignPreview.tsx` (new `calendar-peek` view with fixtures: loaded with 3 events incl. one all-day, empty, loading, error)
+
+**Interfaces:**
+- `peek.ts` (pure; relative `.ts` imports only; may import `isHttpUrl` from `./safe-url.ts`): `type PeekItem = { key: string; title: string; start: string; href: string | null }`; `type PeekView = { status: "ok"; count: number; items: PeekItem[] } | { status: "error"; message: string }`; `peekToView(json: unknown): PeekView`: an object with a string `error` gives `{ status: "error", message: error }`; an object with a finite non-negative number `eventCountThisMonth` and an `upcoming` array gives `ok` with `count` and at most 3 items (items with a non-string `summary` get the title "(No title)", items without a string `start` are dropped, `href` is the `htmlLink` only if `isHttpUrl` accepts it else null, `key` is `${start}|${index}`); anything else gives `{ status: "error", message: "Couldn't load calendar summary" }`.
+- `CalendarPeek(props: { children: React.ReactNode })`: wraps the Calendar chip (children). Behaviour: the popover opens on pointer hover (after ~120 ms) and on `focus-within` (keyboard), closes on mouse leave (after ~150 ms so the pointer can travel into the card), on Escape (focus stays where it was), and when focus leaves the wrapper; it fetches `/api/calendar/summary` the first time it opens and again when opened more than 60 s after the last successful load; shows loading, error and ok states; never opens or fetches below 768 px wide (check `window.matchMedia("(min-width: 768px)")` at open time, no setState synchronously in an effect: lint rule react-hooks/set-state-in-effect applies, start the fetch from the open handler and set state in `.then`); a stale response must not overwrite a newer one (request-id guard) and an in-flight fetch must be ignored after unmount. The popover is a non-modal disclosure: `role="region"` with `aria-label="Calendar preview"`, the chip stays a normal link to /calendar (click navigates, never intercepted), event rows are links (new tab, `rel="noopener noreferrer"`) when `href` is not null, an "OPEN CALENDAR →" link goes to /calendar; `aria-busy` while loading; no focus trap.
+
+**Visual requirements:** a `Card` (outline, hard shadow, 320 px wide max, `max-w-[calc(100vw-2rem)]`) anchored under the chip, left-aligned, above the tape strip (z-index above the top bar; make sure no ancestor with `overflow:hidden` clips it: check TopBar's wrappers and fix by restructuring only if needed); header "THIS MONTH" in display type; a big cobalt count with "events this month" beneath; up to 3 upcoming events as `Ticket`-style stubs or compact sticker rows with a small colour dot from `eventColor(key)` (use `src/lib/ui/event-color.ts`), title (truncated) and the date/time in the `font-hand` style; "NOTHING UPCOMING THIS MONTH." in the empty state; "OPEN CALENDAR →" as a sun `StickerButton`/link at the bottom; pop-in animation honours reduced motion (framer `MotionConfig` is already app-wide). Tokens only; reading text never rotates.
+
+- [ ] **Step 1:** Write `peek.test.ts` first (ok shape with 3+ items capped to 3, missing summary, dropped item, unsafe href becomes null, error object, garbage input, negative or non-finite count), watch it fail, implement `peek.ts`.
+- [ ] **Step 2:** Implement `CalendarPeek.tsx`, wire it in `TopBar.tsx` for `variant === "chat"` only, and add the `calendar-peek` /design view (the real component needs a way to receive fixture data without a network call: let `CalendarPeek` accept an optional `fetchSummary?: () => Promise<unknown>` prop that defaults to the real fetch, and an optional `defaultOpen?: boolean` used only by the preview).
+- [ ] **Step 3:** Run `node scripts/design-shots.mjs calendar-peek` against `npm run dev -- -p 3100` (isolated temp browser profile only, never the owner's browser or the Playwright MCP), LOOK at the screenshots (dark and light, 1440x900 and 390x844; at 390 there must be no popover), and fix what looks wrong; then drive the REAL top bar in the headless browser through the DevTools protocol on the `chat-shell` view with a stubbed fetch to check: hover opens after the delay and shows the card, moving the pointer into the card keeps it open, leaving closes it, Tab focus opens it, Escape closes it, and clicking the Calendar chip still navigates to /calendar.
+- [ ] **Step 4:** `npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` all pass; commit (1-2 commits) with the owner's identity and no attribution lines.

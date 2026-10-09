@@ -65,9 +65,11 @@ npm run smoke      # live check against DATABASE_URL (from .env.local or the env
 The `/design` route renders every screen state (empty chat, conversation, approval card, tape strip, login, calendar month and week, event editor) from fixture data, with no sign-in and no API. It exists in development only: in a production build it returns 404.
 
 ```bash
-npm run dev                                  # then open http://localhost:3000/design?view=kit&theme=dark
+npm run dev -- -p 3100                       # then open http://localhost:3100/design?view=kit&theme=dark
 node scripts/design-shots.mjs [view ...]     # screenshots of the views, dark and light, at 1440x900 and 390x844
 ```
+
+The runner's default base is `http://localhost:3100`, which is why the dev server above is started on port 3100; if you use another port, pass `--base=http://localhost:<port>`. In development the preview's TopBar Disconnect button and the calendar preview's Sync button are the real controls (the real `disconnect` action and the real sync), so do not press them against a real account.
 
 Views include `kit`, `chat-shell`, `chat-empty`, `login`, `chat-conversation`, `chat-approval-short`, `chat-approval-long`, `chat-working`, `chat-error`, `tape-all`, `calendar-month`, `calendar-week`, `calendar-empty`, `calendar-loading`, `event-create`, `event-view` and `event-edit`. The runner uses a throwaway browser profile (never yours) and writes PNGs to the git-ignored `design-shots/` folder; options are listed at the top of `scripts/design-shots.mjs` (`--base`, `--size=WxH`, `--section=...`). The palette, themes and type scale live in `src/app/globals.css`.
 

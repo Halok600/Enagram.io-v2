@@ -68,14 +68,16 @@ export function TopBar({ email, documents, sync, variant, defaultOpen = false }:
   const menuButton = useRef<HTMLButtonElement>(null);
   const wrapper = useRef<HTMLDivElement>(null);
 
-  // The folded menu closes on Escape (focus goes back to the MENU button, which opened it) and on a press outside
-  // the bar, so it never hides the tape messages below it.
+  // The folded menu closes on Escape and on a press outside the bar, so it never hides the tape messages below it.
+  // Focus goes back to the MENU button only when it was inside the menu wrapper (the button or the panel); a focus
+  // that lives elsewhere (the event dialog, the composer) is left alone.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      const focusInsideMenu = wrapper.current?.contains(document.activeElement) ?? false;
       setOpen(false);
-      menuButton.current?.focus();
+      if (focusInsideMenu) menuButton.current?.focus();
     };
     const onPointerDown = (e: PointerEvent) => {
       if (e.target instanceof Node && !wrapper.current?.contains(e.target)) setOpen(false);

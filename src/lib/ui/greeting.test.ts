@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { SUGGESTIONS, firstName } from "./greeting.ts";
 
 test("firstName takes the first word, trimmed", () => {
-  assert.equal(firstName("  Priyanshu Kumar Tiwari "), "Priyanshu");
+  assert.equal(firstName("  Sam Example "), "Sam");
 });
 
 test("firstName returns null for missing or blank names", () => {

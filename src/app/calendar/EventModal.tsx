@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { X, Trash2, Pencil, ExternalLink, MapPin, CalendarClock } from "lucide-react";
 import { parseEventDate } from "@/lib/calendar-date";
@@ -89,10 +89,10 @@ export function EventModal({
   // bar of the month grid is not focusable, so for those focus simply stays where it is.
   const [opener] = useState<Element | null>(() => (typeof document === "undefined" ? null : document.activeElement));
   const dialogRef = useRef<HTMLDivElement>(null);
-  function closeAndRestoreFocus() {
+  const closeAndRestoreFocus = useCallback(() => {
     onClose();
     if (opener instanceof HTMLElement && opener.isConnected && opener !== document.body) opener.focus();
-  }
+  }, [onClose, opener]);
 
   // The dialog takes focus on open when nothing inside it has it (view mode has no autofocus field).
   useEffect(() => {
@@ -105,12 +105,11 @@ export function EventModal({
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented || saving) return;
       e.preventDefault();
-      onClose();
-      if (opener instanceof HTMLElement && opener.isConnected && opener !== document.body) opener.focus();
+      closeAndRestoreFocus();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [saving, onClose, opener]);
+  }, [saving, closeAndRestoreFocus]);
 
   const [form, setForm] = useState(() =>
     event
@@ -258,7 +257,6 @@ export function EventModal({
       <motion.div
         ref={dialogRef}
         role="dialog"
-        aria-modal="true"
         aria-labelledby={`${uid}-heading`}
         tabIndex={-1}
         // The dialog itself only receives focus programmatically (view mode); no ring round the whole sheet.

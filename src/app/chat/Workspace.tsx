@@ -133,6 +133,9 @@ export function Workspace({ email, name }: { email: string; name?: string }) {
       />
       <TapeSlot items={tapeItems} onRetry={retryLastMessage} />
       <main className="flex min-h-0 min-w-0 flex-1 flex-col px-3 pt-4 pb-3 md:px-6 md:pb-5">
+        {/* The empty state carries the screen's one visible h1; once a conversation starts it is gone, so this hidden
+            one takes over and the page always has exactly one. */}
+        {chat.messages.length > 0 ? <h1 className="sr-only">Enagram chat</h1> : null}
         <Chat
           name={name}
           messages={chat.messages}

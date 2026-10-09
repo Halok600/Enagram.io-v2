@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, MotionConfig } from "framer-motion";
 import { ThemeTransitionOverlay } from "./ThemeTransitionOverlay";
 
 export type Theme = "dark" | "light";
@@ -93,8 +93,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, mounted }}>
-      {children}
-      <AnimatePresence>{isTransitioning && <ThemeTransitionOverlay />}</AnimatePresence>
+      {/* One place for the whole app: with reducedMotion="user" every framer-motion animation (page transition,
+          theme overlay, message cards, approval card, calendar drag) drops its transform and layout animations
+          when the OS asks for reduced motion. Opacity fades still run. */}
+      <MotionConfig reducedMotion="user">
+        {children}
+        <AnimatePresence>{isTransitioning && <ThemeTransitionOverlay />}</AnimatePresence>
+      </MotionConfig>
     </ThemeContext.Provider>
   );
 }

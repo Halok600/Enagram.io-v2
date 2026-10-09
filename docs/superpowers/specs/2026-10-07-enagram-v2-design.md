@@ -1,6 +1,6 @@
 # Enagram.io v2 — Design
 
-Date: 2026-10-07 · Owner: Priyanshu Kumar Tiwari · Status: approved in chat, pending written-spec review
+Date: 2026-10-07 · Owner: the repository owner · Status: approved in chat, pending written-spec review
 
 ## 1. Why v2
 
