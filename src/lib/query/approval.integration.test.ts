@@ -86,13 +86,17 @@ function makeTools() {
   return { tools, executed };
 }
 
-async function firstTurn(model: MockLanguageModelV4, tools: ReturnType<typeof makeTools>["tools"]) {
+async function firstTurn(
+  model: MockLanguageModelV4,
+  tools: ReturnType<typeof makeTools>["tools"],
+  secret: string | undefined,
+) {
   const result = streamText({
     model,
     prompt: "Delete the Acme sync",
     tools,
     toolApproval: TOOL_APPROVAL_POLICY,
-    experimental_toolApprovalSecret: SECRET,
+    experimental_toolApprovalSecret: secret,
     stopWhen: stepCountIs(5),
   });
   const uiStream = result.toUIMessageStream();
@@ -100,20 +104,6 @@ async function firstTurn(model: MockLanguageModelV4, tools: ReturnType<typeof ma
   for await (const chunk of uiStream) chunks.push(chunk as { type: string });
   return chunks;
 }
-
-test("a gated tool the model requests is NOT executed; an approval request is emitted instead", async () => {
-  const { tools, executed } = makeTools();
-  const model = deletingModel();
-
-  const chunks = await firstTurn(model, tools);
-
-  assert.deepEqual(executed, [], "execute must not run without an approval");
-  assert.equal(model.doStreamCalls.length, 1, "the turn stops and waits for the owner");
-  const request = chunks.find((c) => c.type === "tool-approval-request");
-  assert.ok(request, "the UI stream must carry a tool-approval-request");
-  assert.equal(request.toolCallId, "call-1");
-  assert.equal(chunks.some((c) => c.type === "tool-output-available"), false);
-});
 
 /** What useChat sends back after the owner clicks: the same assistant message with an answered approval. */
 function resubmitted(approved: boolean, approvalId: string, signature: string | undefined): UIMessage[] {
@@ -135,10 +125,10 @@ function resubmitted(approved: boolean, approvalId: string, signature: string | 
   ] as UIMessage[];
 }
 
-async function secondTurn(approved: boolean) {
+async function secondTurn(approved: boolean, secret: string | undefined) {
   const { tools, executed } = makeTools();
   const model = deletingModel();
-  const chunks = await firstTurn(model, tools);
+  const chunks = await firstTurn(model, tools, secret);
   const request = chunks.find((c) => c.type === "tool-approval-request") as unknown as {
     approvalId: string;
     signature?: string;
@@ -149,20 +139,41 @@ async function secondTurn(approved: boolean) {
     messages: await convertToModelMessages(resubmitted(approved, request.approvalId, request.signature)),
     tools,
     toolApproval: TOOL_APPROVAL_POLICY,
-    experimental_toolApprovalSecret: SECRET,
+    experimental_toolApprovalSecret: secret,
     stopWhen: stepCountIs(5),
   });
   await result.text;
   return executed;
 }
 
-test("after an Approve click the tool runs exactly once", async () => {
-  assert.deepEqual(await secondTurn(true), ["evt-123"]);
-});
+// Both the signed setup (TOOL_APPROVAL_SECRET set) and the production default (unset, which is how
+// the route behaves until the owner adds the variable) must hold the same guarantee.
+for (const [label, secret] of [
+  ["with TOOL_APPROVAL_SECRET", SECRET],
+  ["default, no TOOL_APPROVAL_SECRET", undefined],
+] as const) {
+  test(`${label}: a gated tool the model requests is NOT executed; an approval request is emitted instead`, async () => {
+    const { tools, executed } = makeTools();
+    const model = deletingModel();
+  
+    const chunks = await firstTurn(model, tools, secret);
+  
+    assert.deepEqual(executed, [], "execute must not run without an approval");
+    assert.equal(model.doStreamCalls.length, 1, "the turn stops and waits for the owner");
+    const request = chunks.find((c) => c.type === "tool-approval-request");
+    assert.ok(request, "the UI stream must carry a tool-approval-request");
+    assert.equal(request.toolCallId, "call-1");
+    assert.equal(chunks.some((c) => c.type === "tool-output-available"), false);
+  });
 
-test("after a Deny click the tool never runs", async () => {
-  assert.deepEqual(await secondTurn(false), []);
-});
+  test(`${label}: after an Approve click the tool runs exactly once`, async () => {
+    assert.deepEqual(await secondTurn(true, secret), ["evt-123"]);
+  });
+
+  test(`${label}: after a Deny click the tool never runs`, async () => {
+    assert.deepEqual(await secondTurn(false, secret), []);
+  });
+}
 
 test("an approval that was not signed by this server is rejected and the tool does not run", async () => {
   const { tools, executed } = makeTools();

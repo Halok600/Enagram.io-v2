@@ -48,7 +48,7 @@ Browser ── Vercel (Next.js 16) ──┬── Google APIs (Gmail / Drive / 
 | `DATABASE_URL` | Supabase Postgres connection string (the transaction pooler, port 6543) |
 | `CRON_SECRET` | Guards `/api/keepalive`, called daily by Vercel Cron |
 | `ALLOWED_EMAILS` | Comma-separated Google account emails allowed to sign in and call the API. Set it in Vercel; unset or empty = unrestricted; any other value with no valid entries (for example `,` or only spaces) = nobody can sign in. **Set it before publishing the Google OAuth app.** |
-| `TOOL_APPROVAL_SECRET` | Optional. Signs the chat's Approve/Deny requests so a forged "approved" message from the browser is rejected. Generate with `openssl rand -base64 32` and set **one** value in Vercel (it must be identical on every instance, since one instance signs and another may verify). Unset or blank = approvals still work, just unsigned. |
+| `TOOL_APPROVAL_SECRET` | Recommended for production (optional in code). Makes the chat's Approve/Deny requests tamper-proof: each is signed, so a forged "approved" message from the browser is rejected. Without it, approvals still work but are unsigned, so someone who can send requests to `/api/chat` with your session could craft one. Generate with `openssl rand -base64 32` and set **one** value in Vercel (it must be identical on every instance, since one instance signs and another may verify). |
 
 ## Develop
 
