@@ -1,111 +1,133 @@
 @import "tailwindcss";
 
-/* ---------------------------------------------------------------------
-   Modern production theme — replaced the earlier "Night City" cyberpunk
-   terminal look (neon glow, scanlines, clip-path cut corners) on user
-   feedback: "make it look like a modern website... for production use."
-   Restrained neutral surfaces + a single indigo accent, soft shadows
-   instead of glow, standard rounded corners. Theme is toggled via
-   [data-theme] on <html> (see ThemeProvider.tsx) — every color below is
-   a token so components never need to know which theme is active.
---------------------------------------------------------------------- */
-:root {
-  --bg: #0b0d12;
-  --bg-panel: #12141b;
-  --bg-panel-raised: #191c25;
-  --bg-sidebar: #0e1015;
-
-  /* Single brand accent (indigo) — links, active state, primary actions. */
-  --accent: #818cf8;
-  --accent-strong: #6366f1;
-  --accent-soft-bg: rgba(99, 102, 241, 0.14);
-
-  --text-primary: #f4f4f6;
-  --text-secondary: #a8adba;
-  --text-tertiary: #6b7080;
-
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.16);
-
-  --danger: #f87171;
-  --danger-soft-bg: rgba(248, 113, 113, 0.1);
-  --success: #4ade80;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
-
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-
-  --selection-text: #ffffff;
+/* STICKER theme. Dark is the default (the no-flash script sets data-theme="dark" or "light" before paint). */
+:root, :root[data-theme="dark"] {
+  --bg: #121212;
+  --panel: #1b1b1b;
+  --ink: #f5f0e6;
+  --ink-soft: #b9b3a6;
+  --line: #f5f0e6;
+  --cobalt: #4a5bff;
+  --on-cobalt: #ffffff;
+  --link: #8d99ff;
+  --sun: #ffd23f;
+  --on-sun: #111111;
+  --bubblegum: #ff7ab8;
+  --on-bubblegum: #111111;
+  --danger: #ff6a5c;
+  --on-danger: #111111;
+  --danger-ink: #ff8f84;
+  --shadow-color: #4a5bff;
+  color-scheme: dark;
 }
 
 :root[data-theme="light"] {
-  --bg: #fafafa;
-  --bg-panel: #ffffff;
-  --bg-panel-raised: #f1f1f5;
-  --bg-sidebar: #f5f5f8;
+  --bg: #fbf4e4;
+  --panel: #fffaf0;
+  --ink: #111111;
+  --ink-soft: #4a463d;
+  --line: #111111;
+  --cobalt: #2a3bff;
+  --on-cobalt: #ffffff;
+  --link: #2a3bff;
+  --sun: #ffd23f;
+  --on-sun: #111111;
+  --bubblegum: #ff7ab8;
+  --on-bubblegum: #111111;
+  --danger: #ff4d3d;
+  --on-danger: #111111;
+  --danger-ink: #c4220f;
+  --shadow-color: #111111;
+  color-scheme: light;
+}
 
-  --accent: #6366f1;
-  --accent-strong: #4f46e5;
-  --accent-soft-bg: rgba(99, 102, 241, 0.08);
-
-  --text-primary: #18181b;
-  --text-secondary: #52525b;
-  --text-tertiary: #8b8b96;
-
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.16);
-
-  --danger: #ef4444;
-  --danger-soft-bg: rgba(239, 68, 68, 0.08);
-  --success: #16a34a;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
-
-  --selection-text: #ffffff;
+:root {
+  --stroke: 2.5px;
+  --radius-card: 4px;
+  --radius-pill: 999px;
+  --shadow-hard: 4px 4px 0 var(--shadow-color);
+  --shadow-hard-lg: 6px 6px 0 var(--shadow-color);
+  --shadow-hard-sm: 1px 1px 0 var(--shadow-color);
 }
 
 @theme inline {
   --color-background: var(--bg);
-  --color-foreground: var(--text-primary);
-  --font-sans: var(--font-sans);
-  --font-display: var(--font-display);
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-sans), system-ui, sans-serif;
+  --font-display: var(--font-display), "Archivo Black", Impact, sans-serif;
+  --font-hand: var(--font-hand), "Comic Sans MS", cursive;
 }
 
-html,
-body {
-  height: 100%;
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-sans), system-ui, sans-serif; font-size: 16px; line-height: 1.55; }
+
+.font-display { font-family: var(--font-display), "Archivo Black", Impact, sans-serif; font-weight: 900; font-stretch: 125%; text-transform: uppercase; letter-spacing: -0.02em; line-height: 0.92; }
+.font-hand { font-family: var(--font-hand), cursive; line-height: 1.1; }
+
+::selection { background: var(--sun); color: #111111; }
+
+/* Elevation: every surface exposes its hard offset shadow through --elevation (inline style or a class below) so the
+   focus ring can ADD the sun ring to it instead of replacing it. Not inherited, so a link inside a card never picks
+   up the card's shadow when it is focused. */
+@property --elevation { syntax: "*"; inherits: false; }
+
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; box-shadow: var(--elevation, 0 0 #0000), 0 0 0 6px var(--sun); }
+
+/* Hazard tape used by the tape strip and the working ticker. */
+.hazard { background: repeating-linear-gradient(-45deg, var(--sun) 0 14px, #111111 14px 28px); }
+
+/* Shared sticker part styles. In a cascade layer so the unlayered focus rule above always wins on focus. */
+@layer components {
+  .elev { box-shadow: var(--elevation, 0 0 #0000); }
+
+  .pressable { --elevation: var(--shadow-hard); box-shadow: var(--elevation); transition: box-shadow 90ms ease-out; }
+  .pressable:not(:disabled):not([aria-disabled="true"]):hover { --elevation: var(--shadow-hard-lg); }
+  .pressable:not(:disabled):not([aria-disabled="true"]):active { --elevation: var(--shadow-hard-sm); }
+
+  /* Ticket stub: a line-coloured layer cut by four round notches (left, right, top and bottom of the perforation),
+     with a fill layer inset by the stroke and cut by slightly larger notches, which leaves a clean outline round
+     every notch. The hard shadow is a drop-shadow filter so it follows the notches. */
+  .ticket-shadow { filter: drop-shadow(4px 4px 0 var(--shadow-color)); transition: filter 90ms ease-out; }
+  .ticket-link:hover .ticket-shadow { filter: drop-shadow(6px 6px 0 var(--shadow-color)); }
+  .ticket-link:active .ticket-shadow { filter: drop-shadow(1px 1px 0 var(--shadow-color)); }
+  .ticket-edge {
+    --r: 9px; --s: var(--stroke); --w: 4.25rem;
+    position: relative; background: var(--line);
+    -webkit-mask-image:
+      radial-gradient(circle var(--r) at 0 50%, #0000 calc(var(--r) - 0.5px), #000 var(--r)),
+      radial-gradient(circle var(--r) at 100% 50%, #0000 calc(var(--r) - 0.5px), #000 var(--r)),
+      radial-gradient(circle var(--r) at calc(100% - var(--w)) 0, #0000 calc(var(--r) - 0.5px), #000 var(--r)),
+      radial-gradient(circle var(--r) at calc(100% - var(--w)) 100%, #0000 calc(var(--r) - 0.5px), #000 var(--r));
+    mask-image:
+      radial-gradient(circle var(--r) at 0 50%, #0000 calc(var(--r) - 0.5px), #000 var(--r)),
+      radial-gradient(circle var(--r) at 100% 50%, #0000 calc(var(--r) - 0.5px), #000 var(--r)),
+      radial-gradient(circle var(--r) at calc(100% - var(--w)) 0, #0000 calc(var(--r) - 0.5px), #000 var(--r)),
+      radial-gradient(circle var(--r) at calc(100% - var(--w)) 100%, #0000 calc(var(--r) - 0.5px), #000 var(--r));
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+  .ticket-fill {
+    --rr: calc(var(--r) + var(--s));
+    position: absolute; inset: var(--s);
+    -webkit-mask-image:
+      radial-gradient(circle var(--rr) at calc(0px - var(--s)) 50%, #0000 calc(var(--rr) - 0.5px), #000 var(--rr)),
+      radial-gradient(circle var(--rr) at calc(100% + var(--s)) 50%, #0000 calc(var(--rr) - 0.5px), #000 var(--rr)),
+      radial-gradient(circle var(--rr) at calc(100% + var(--s) - var(--w)) calc(0px - var(--s)), #0000 calc(var(--rr) - 0.5px), #000 var(--rr)),
+      radial-gradient(circle var(--rr) at calc(100% + var(--s) - var(--w)) calc(100% + var(--s)), #0000 calc(var(--rr) - 0.5px), #000 var(--rr));
+    mask-image:
+      radial-gradient(circle var(--rr) at calc(0px - var(--s)) 50%, #0000 calc(var(--rr) - 0.5px), #000 var(--rr)),
+      radial-gradient(circle var(--rr) at calc(100% + var(--s)) 50%, #0000 calc(var(--rr) - 0.5px), #000 var(--rr)),
+      radial-gradient(circle var(--rr) at calc(100% + var(--s) - var(--w)) calc(0px - var(--s)), #0000 calc(var(--rr) - 0.5px), #000 var(--rr)),
+      radial-gradient(circle var(--rr) at calc(100% + var(--s) - var(--w)) calc(100% + var(--s)), #0000 calc(var(--rr) - 0.5px), #000 var(--rr));
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
 }
 
-html {
-  font-size: 16px;
-}
+@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-body {
-  background: var(--bg);
-  color: var(--text-primary);
-  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-/* Smooth theme toggle: color/background/border animate instead of
-   flashing. Scoped to these properties only (not box-shadow/transform) so
-   it doesn't fight with Framer Motion's hover/tap animations. */
-*,
-*::before,
-*::after {
-  transition:
-    background-color 220ms ease,
-    border-color 220ms ease,
-    color 220ms ease;
-}
-
-::selection {
-  background: var(--accent-strong);
-  color: var(--selection-text);
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
 }
 
 ::-webkit-scrollbar {
@@ -113,21 +135,41 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-panel);
+  background: var(--panel);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 999px;
+  background: var(--line);
+  border-radius: var(--radius-pill);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
+  background: var(--ink-soft);
 }
 
-/* ---------------------------------------------------------------------
-   "Thinking" indicator — three bouncing dots, the standard chat-app
-   "typing" pattern, replacing the earlier 5-bar terminal-EQ animation.
-   Pure CSS keyframes, no JS animation loop.
---------------------------------------------------------------------- */
+/* ---- LEGACY BRIDGE: old variable names mapped to new tokens so un-migrated components stay presentable.
+   Deleted in Task 8 once nothing references them. ---- */
+:root {
+  --bg-panel: var(--panel);
+  --bg-panel-raised: var(--panel);
+  --bg-sidebar: var(--panel);
+  --accent: var(--link);
+  --accent-strong: var(--cobalt);
+  --accent-soft-bg: var(--panel);
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-soft);
+  --text-tertiary: var(--ink-soft);
+  --border: var(--line);
+  --border-strong: var(--line);
+  --danger-soft-bg: var(--panel);
+  --success: var(--link);
+  --shadow-sm: var(--shadow-hard-sm);
+  --shadow-md: var(--shadow-hard);
+  --radius-sm: var(--radius-card);
+  --radius-md: var(--radius-card);
+  --radius-lg: var(--radius-card);
+  --selection-text: #111111;
+}
+
+/* ---- Old "thinking" indicator. Kept until Task 6 deletes ThinkingIndicator. ---- */
 @keyframes thinking-fade-in {
   from {
     opacity: 0;
