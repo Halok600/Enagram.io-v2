@@ -16,10 +16,13 @@ import { join, resolve } from "node:path";
 
 const args = process.argv.slice(2);
 const opt = (name) => args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+// view and section end up in file names and URLs: keep only [a-z0-9-].
+const safe = (value) => value.toLowerCase().replace(/[^a-z0-9-]/g, "");
 const base = opt("base") ?? "http://localhost:3100";
-const section = opt("section");
+const sectionRaw = opt("section");
+const section = sectionRaw === undefined ? undefined : safe(sectionRaw) || undefined;
 const viewportOnly = args.includes("--viewport-only");
-const views = args.filter((a) => !a.startsWith("--"));
+const views = args.filter((a) => !a.startsWith("--")).map(safe).filter(Boolean);
 if (views.length === 0) views.push("kit");
 
 const CANDIDATES = [
@@ -46,6 +49,7 @@ const SIZES = sizeOpt
       [1440, 900],
       [390, 844],
     ];
+const SEND_TIMEOUT_MS = 20000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const outDir = resolve("design-shots");
@@ -57,10 +61,35 @@ const child = spawn(
   ["--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank"],
   { stdio: "ignore" },
 );
+let spawnError = null;
+child.on("error", (err) => {
+  spawnError = err;
+  console.error(`Could not start the browser (${browserPath}): ${err.message}`);
+});
+
+function cleanup() {
+  try {
+    child.kill();
+  } catch {
+    // Already gone.
+  }
+  try {
+    rmSync(profile, { recursive: true, force: true });
+  } catch {
+    // The temp profile may still be locked for a moment; the OS temp cleaner removes it later.
+  }
+}
+for (const sig of ["SIGINT", "SIGTERM"]) {
+  process.on(sig, () => {
+    cleanup();
+    process.exit(130);
+  });
+}
 
 async function debuggerPort() {
   const file = join(profile, "DevToolsActivePort");
   for (let i = 0; i < 100; i++) {
+    if (spawnError) throw spawnError;
     if (existsSync(file)) {
       const port = readFileSync(file, "utf8").split(/\r?\n/)[0];
       if (port) return Number(port);
@@ -90,7 +119,14 @@ function connect(url) {
         send: (method, params = {}) =>
           new Promise((ok, fail) => {
             const mid = ++id;
-            pending.set(mid, { ok, fail });
+            const timer = setTimeout(() => {
+              pending.delete(mid);
+              fail(new Error(`DevTools call ${method} timed out after ${SEND_TIMEOUT_MS / 1000}s`));
+            }, SEND_TIMEOUT_MS);
+            pending.set(mid, {
+              ok: (v) => (clearTimeout(timer), ok(v)),
+              fail: (e) => (clearTimeout(timer), fail(e)),
+            });
             ws.send(JSON.stringify({ id: mid, method, params }));
           }),
         close: () => ws.close(),
@@ -143,10 +179,6 @@ try {
 } finally {
   child.kill();
   await sleep(500);
-  try {
-    rmSync(profile, { recursive: true, force: true });
-  } catch {
-    // The temp profile may still be locked for a moment; the OS temp cleaner removes it later.
-  }
+  cleanup();
 }
 process.exit(failed ? 1 : 0);

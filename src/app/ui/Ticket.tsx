@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import { isHttpUrl } from "../../lib/ui/safe-url";
 import { THUNK, TONE_CLASS } from "./tone";
 
 // A notched, perforated source stub: dashed perforation, number badge on the right, truncated title.
@@ -10,7 +11,8 @@ export function Ticket({ n, title, tone, url, score }: { n: number; title: strin
   const reduce = useReducedMotion();
   const tilt = n % 2 === 0 ? "motion-safe:-rotate-[0.6deg]" : "motion-safe:rotate-[0.6deg]";
   const label = score === undefined ? title : `${title} (relevance ${score.toFixed(2)})`;
-  const hover = reduce ? undefined : { rotate: n % 2 === 0 ? 0.6 : -0.6, x: url ? -1 : 0, y: url ? -1 : 0 };
+  const href = isHttpUrl(url) ? url : undefined;
+  const hover = reduce ? undefined : { rotate: n % 2 === 0 ? 0.6 : -0.6, x: href ? -1 : 0, y: href ? -1 : 0 };
   const body = (
     <div className="ticket-shadow">
       <div className="ticket-edge h-16">
@@ -32,16 +34,24 @@ export function Ticket({ n, title, tone, url, score }: { n: number; title: strin
       </div>
     </div>
   );
-  const shared = { whileHover: hover, transition: THUNK, className: `ticket-link block w-full ${tilt}` } as const;
-  if (url) {
+  const shared = { whileHover: hover, transition: THUNK } as const;
+  if (href) {
     return (
-      <motion.a href={url} target="_blank" rel="noopener noreferrer" aria-label={`Source ${n}: ${label}`} title={label} {...shared}>
+      <motion.a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Source ${n}: ${label} (opens in a new tab)`}
+        title={label}
+        className={`ticket-link block w-full ${tilt}`}
+        {...shared}
+      >
         {body}
       </motion.a>
     );
   }
   return (
-    <motion.div role="group" aria-label={`Source ${n}: ${label}`} title={label} {...shared}>
+    <motion.div role="group" aria-label={`Source ${n}: ${label}`} title={label} className={`block w-full ${tilt}`} {...shared}>
       {body}
     </motion.div>
   );

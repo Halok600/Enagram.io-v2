@@ -38,7 +38,7 @@ export function EmptyState({
   return (
     <div className="flex w-full flex-col gap-6 text-left">
       <motion.div className="flex flex-col gap-3" {...enter(0)}>
-        <h1 className="font-display text-[clamp(3rem,9.5vw,7.5rem)] break-words">
+        <h1 className="font-display text-[clamp(3rem,8vw,5.5rem)] break-words">
           WHAT&apos;S UP{greetName ? "," : "?"}
           {greetName ? <span className="block [overflow-wrap:anywhere]">{greetName}?</span> : null}
         </h1>
@@ -49,8 +49,8 @@ export function EmptyState({
         {SUGGESTIONS.map(({ id, text, kind }, i) => {
           const Icon = ICONS[kind];
           return (
-            <li key={id}>
-              <Chip tone={TONES[i % TONES.length]} icon={<Icon size={16} strokeWidth={2.5} />} disabled={isBusy} onClick={() => onSend(text)}>
+            <li key={id} className="max-w-full">
+              <Chip tone={TONES[i % TONES.length]} icon={<Icon size={16} strokeWidth={2.5} />} disabled={isBusy} onClick={() => onSend(text)} className="h-auto! min-h-8 max-w-full py-1.5 text-left whitespace-normal!">
                 {text}
               </Chip>
             </li>

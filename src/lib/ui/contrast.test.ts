@@ -22,6 +22,7 @@ const PAIRS: [string, string, number, string][] = [
   ["--link", "--panel", 4.5, "links on cards"],
   ["--on-cobalt", "--cobalt", 4.5, "text on primary buttons"],
   ["--on-sun", "--sun", 4.5, "text on yellow"],
+  ["--hazard-ink", "--sun", 4.5, "hazard tape stripes against the yellow stripes and selected text"],
   ["--on-bubblegum", "--bubblegum", 4.5, "text on pink"],
   ["--on-danger", "--danger", 4.5, "text on danger buttons"],
   ["--danger-ink", "--bg", 4.5, "error text on page"],
@@ -40,6 +41,8 @@ const FOCUS_PAIRS: Record<"dark" | "light", [string, string, number, string][]> 
   dark: [
     ["--ink", "--bg", 3, "focus ring inner ring against the page (non-text)"],
     ["--sun", "--bg", 3, "focus ring outer ring against the page (non-text)"],
+    ["--ink", "--panel", 3, "focus ring inner ring against cards (non-text)"],
+    ["--sun", "--panel", 3, "focus ring outer ring against cards (non-text)"],
   ],
 };
 

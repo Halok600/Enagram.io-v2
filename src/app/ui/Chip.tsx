@@ -37,6 +37,7 @@ export function Chip({ tone = "plain", href, external, onClick, disabled, icon, 
     <>
       {icon ? <span aria-hidden className="inline-flex shrink-0">{icon}</span> : null}
       {children}
+      {external && href !== undefined && !disabled ? <span className="sr-only">(opens in a new tab)</span> : null}
     </>
   );
   const cls = `${base} ${press} ${off}`;

@@ -18,7 +18,8 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      aria-label={mounted ? `Switch to ${isDark ? "light" : "dark"} mode` : "Toggle theme"}
+      aria-label="Dark mode"
+      aria-pressed={mounted ? isDark : undefined}
       className="pressable relative inline-flex h-11 shrink-0 cursor-pointer overflow-hidden rounded-[var(--radius-card)] border-[length:var(--stroke)] border-[var(--line)]"
     >
       <span className={half(mounted && !isDark)}>

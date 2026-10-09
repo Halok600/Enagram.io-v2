@@ -28,7 +28,7 @@ export function LoginCard({ children }: { children: ReactNode }) {
 /** The one big button of the login screen. `type="submit"` inside the page's form; "button" in the preview. */
 export function ConnectGoogleButton({ type = "submit" }: { type?: "submit" | "button" }) {
   return (
-    <StickerButton type={type} tone="cobalt" size="lg" className="w-full px-3! text-base whitespace-nowrap sm:min-h-16 sm:px-7! sm:text-2xl">
+    <StickerButton type={type} tone="cobalt" size="lg" className="w-full px-3! text-base! whitespace-nowrap sm:min-h-16 sm:px-7! sm:text-2xl!">
       CONNECT GOOGLE
     </StickerButton>
   );

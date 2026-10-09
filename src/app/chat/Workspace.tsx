@@ -93,8 +93,8 @@ export function Workspace({ email, name }: { email: string; name?: string }) {
   // lifecycle has no user session/OAuth token at that point (ingestion needs
   // one). This is the practical equivalent: fire once automatically as soon
   // as an authenticated page loads, so the demo data is already fresh
-  // without a manual click first. Silent/best-effort — the visible SyncButton
-  // still exists for a manual re-sync, and still shows its own result.
+  // without a manual click first. Silent/best-effort — the top bar's Sync sticker
+  // is still there for a manual re-sync, and the tape strip shows its progress and result.
   const autoSyncedRef = useRef(false);
   useEffect(() => {
     if (autoSyncedRef.current) return;

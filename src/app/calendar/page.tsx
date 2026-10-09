@@ -11,5 +11,5 @@ export default async function CalendarPage() {
   // No sync props are needed here: after a calendar create/update/delete, the mutating API
   // routes call reingestCalendar (src/lib/sync/calendar.ts) server-side, so this client
   // component only renders the board.
-  return <CalendarBoard />;
+  return <CalendarBoard email={session.user?.email ?? ""} />;
 }

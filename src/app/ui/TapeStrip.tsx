@@ -1,6 +1,7 @@
 "use client";
 
-import { RotateCw, TriangleAlert } from "lucide-react";
+import { CircleCheck, LoaderCircle, RotateCw, TriangleAlert } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { TapeItem, TapeTone } from "@/lib/ui/tape";
 import { StickerButton } from "./StickerButton";
 
@@ -10,6 +11,9 @@ const TONE: Record<TapeTone, { word: string; cls: string }> = {
   ok: { word: "DONE", cls: "bg-[var(--panel)] text-[var(--ink)]" },
   warn: { word: "HEADS UP", cls: "bg-[var(--bubblegum)] text-[var(--on-bubblegum)]" },
 };
+
+// The icon follows the tone: a tick for done, a spinner for working, a triangle only where something is wrong.
+const ICON: Record<TapeTone, LucideIcon> = { alert: TriangleAlert, warn: TriangleAlert, working: LoaderCircle, ok: CircleCheck };
 
 // Full-bleed hazard band, tilted -1deg (motion-safe only). The page container must hide horizontal overflow.
 // Every item carries a word prefix, so colour is never the only signal. The live region (role=status) belongs to the
@@ -22,10 +26,11 @@ export function TapeStrip({ items, onRetry }: { items: TapeItem[]; onRetry?: () 
       <ul className="m-0 flex list-none flex-wrap items-center gap-x-4 gap-y-2 px-[5%] py-3">
         {items.map((item) => {
           const t = TONE[item.tone];
+          const Icon = ICON[item.tone];
           return (
             <li key={item.id} className="flex flex-wrap items-center gap-2">
               <span className={`inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-pill)] border-[length:var(--stroke)] border-[var(--line)] py-1 pr-4 pl-3 text-sm leading-snug font-bold ${t.cls}`}>
-                <TriangleAlert aria-hidden size={18} strokeWidth={2.5} className="shrink-0" />
+                <Icon aria-hidden size={18} strokeWidth={2.5} className={`shrink-0 ${item.tone === "working" ? "motion-safe:animate-spin" : ""}`} />
                 <span className="font-display text-xs tracking-wider whitespace-nowrap">{t.word}</span>
                 <span>{item.text}</span>
               </span>

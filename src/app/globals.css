@@ -12,6 +12,7 @@
   --link: #8d99ff;
   --sun: #ffd23f;
   --on-sun: #111111;
+  --hazard-ink: #111111;
   --bubblegum: #ff7ab8;
   --on-bubblegum: #111111;
   --danger: #ff6a5c;
@@ -32,6 +33,7 @@
   --link: #2a3bff;
   --sun: #ffd23f;
   --on-sun: #111111;
+  --hazard-ink: #111111;
   --bubblegum: #ff7ab8;
   --on-bubblegum: #111111;
   --danger: #ff4d3d;
@@ -64,7 +66,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--font-sans), 
 .font-display { font-family: var(--font-display), "Archivo Black", Impact, sans-serif; font-weight: 900; font-stretch: 125%; text-transform: uppercase; letter-spacing: -0.02em; line-height: 0.92; }
 .font-hand { font-family: var(--font-hand), cursive; line-height: 1.1; }
 
-::selection { background: var(--sun); color: #111111; }
+::selection { background: var(--sun); color: var(--hazard-ink); }
 
 /* Elevation: every surface exposes its hard offset shadow through --elevation (inline style or a class below) so the
    focus ring can ADD the sun ring to it instead of replacing it. Not inherited, so a link inside a card never picks
@@ -74,7 +76,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--font-sans), 
 :focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; box-shadow: var(--elevation, 0 0 #0000), 0 0 0 6px var(--sun); }
 
 /* Hazard tape used by the tape strip and the working ticker. */
-.hazard { background: repeating-linear-gradient(-45deg, var(--sun) 0 14px, #111111 14px 28px); }
+.hazard { background: repeating-linear-gradient(-45deg, var(--sun) 0 14px, var(--hazard-ink) 14px 28px); }
 
 /* Shared sticker part styles. In a cascade layer so the unlayered focus rule above always wins on focus. */
 @layer components {
@@ -122,6 +124,20 @@ body { background: var(--bg); color: var(--ink); font-family: var(--font-sans), 
     -webkit-mask-composite: source-in;
     mask-composite: intersect;
   }
+}
+
+/* Event editor sheet: a paper sheet with its top-right corner folded over. The sheet itself (.sheet-clip) and a
+   shadow layer behind it are cut by the same diagonal; .sheet-flap is the folded triangle, an ink-outlined sun
+   triangle whose long edge sits exactly on that cut. The shadow is a separate layer (not a filter) so the focus
+   rings of the inputs inside never grow a shadow of their own. --fold is the size of the folded corner. */
+.sheet { --fold: 2.75rem; position: relative; }
+.sheet-clip { clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%); }
+.sheet-shadow { position: absolute; inset: 0; transform: translate(6px, 6px); background: var(--shadow-color); }
+.sheet-flap { position: absolute; top: 0; right: 0; width: var(--fold); height: var(--fold); background: var(--line); clip-path: polygon(0 0, 100% 100%, 0 100%); pointer-events: none; }
+.sheet-flap::after {
+  content: ""; position: absolute; inset: 0; background: var(--sun);
+  /* The outline triangle shrunk by the stroke: the two legs move in by s, the long edge by s * 1.414. */
+  clip-path: polygon(var(--stroke) calc(var(--stroke) * 2.414), var(--stroke) calc(100% - var(--stroke)), calc(100% - var(--stroke) * 2.414) calc(100% - var(--stroke)));
 }
 
 @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }

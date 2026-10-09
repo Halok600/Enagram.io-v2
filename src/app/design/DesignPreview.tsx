@@ -12,6 +12,7 @@ import { TapeSlot } from "../ui/TapeSlot";
 import { TopBar } from "../ui/TopBar";
 import { Chat } from "../chat/Chat";
 import { ConnectGoogleButton, LoginCard } from "../ui/LoginCard";
+import { CALENDAR_VIEWS, CalendarPreview } from "./CalendarPreview";
 import { Ticket } from "../ui/Ticket";
 import { WorkingTicker } from "../ui/WorkingTicker";
 import {
@@ -28,6 +29,7 @@ import {
   WORKING_MESSAGES,
 } from "./fixtures";
 import type { UIMessage } from "ai";
+import type { TapeItem } from "@/lib/ui/tape";
 
 type Props = { theme: "dark" | "light"; view: string; section?: string };
 
@@ -248,7 +250,9 @@ function ChatScreen({
   activeTools = [],
   assistantTimestamps,
   height,
+  tape = [],
 }: {
+  tape?: TapeItem[];
   messages: UIMessage[];
   status?: "ready" | "submitted" | "streaming";
   activeTools?: readonly string[];
@@ -258,7 +262,7 @@ function ChatScreen({
   return (
     <div className="flex w-full flex-col overflow-x-clip bg-[var(--bg)]" style={height ? { height } : { minHeight: "100vh" }}>
       <TopBar email="sam@example.com" documents={163} sync={{ state: "idle", run: noop }} variant="chat" />
-      <TapeSlot items={[]} />
+      <TapeSlot items={tape} onRetry={noop} />
       <main className="flex min-h-0 min-w-0 flex-1 flex-col px-3 pt-4 pb-3 md:px-6 md:pb-5">
         <Chat
           name="Sam Example"
@@ -284,7 +288,26 @@ function ChatWorking() {
   );
 }
 
-const CHAT_VIEWS = ["chat-conversation", "chat-approval-short", "chat-approval-long", "chat-working"];
+// Every tape situation at once: all five items in one strip, then each alone, so the tones can be compared.
+function TapeAll() {
+  return (
+    <div className="flex flex-col gap-10 overflow-x-clip pb-10">
+      <TopBar email="sam@example.com" documents={163} sync={{ state: "loading", run: noop }} variant="chat" />
+      <section aria-label="All tape messages together" className="flex flex-col gap-3">
+        <p className="font-hand px-4 text-2xl text-[var(--ink-soft)] sm:px-8">all together</p>
+        <TapeSlot items={TAPE_ITEMS} onRetry={noop} />
+      </section>
+      {TAPE_ITEMS.map((item) => (
+        <section key={item.id} aria-label={`Tape message: ${item.id}`} className="flex flex-col gap-3">
+          <p className="font-hand px-4 text-2xl text-[var(--ink-soft)] sm:px-8">{item.id}</p>
+          <TapeSlot items={[item]} onRetry={noop} />
+        </section>
+      ))}
+    </div>
+  );
+}
+
+const CHAT_VIEWS = ["tape-all", "chat-error", "chat-conversation", "chat-approval-short", "chat-approval-long", "chat-working"];
 
 export function DesignPreview({ theme, view, section }: Props) {
   // A plain attribute assignment (no setState). The no-flash script already set the stored theme; the URL wins here.
@@ -296,7 +319,11 @@ export function DesignPreview({ theme, view, section }: Props) {
   if (CHAT_VIEWS.includes(view)) {
     return (
       <div className="min-h-screen overflow-x-clip bg-[var(--bg)] text-[var(--ink)]">
-        {view === "chat-conversation" ? (
+        {view === "tape-all" ? (
+          <TapeAll />
+        ) : view === "chat-error" ? (
+          <ChatScreen messages={CONVERSATION_MESSAGES.slice(0, 1)} tape={[TAPE_ITEMS[1]]} />
+        ) : view === "chat-conversation" ? (
           <ChatScreen messages={CONVERSATION_MESSAGES} />
         ) : view === "chat-approval-short" ? (
           <ChatScreen messages={APPROVAL_SHORT_MESSAGES} />
@@ -305,6 +332,14 @@ export function DesignPreview({ theme, view, section }: Props) {
         ) : (
           <ChatWorking />
         )}
+      </div>
+    );
+  }
+
+  if (CALENDAR_VIEWS.includes(view)) {
+    return (
+      <div className="min-h-screen overflow-x-clip bg-[var(--bg)] text-[var(--ink)]">
+        <CalendarPreview view={view} />
       </div>
     );
   }

@@ -12,7 +12,7 @@ const LABELS: Record<string, string> = {
 };
 
 export function toolLabel(name: string): string {
-  return LABELS[name] ?? "WORKING";
+  return Object.hasOwn(LABELS, name) ? LABELS[name] : "WORKING";
 }
 
 export function tickerText(names: readonly string[]): string {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, HardDrive, Mail, Menu, RefreshCw, X } from "lucide-react";
 import { disconnect } from "../actions";
@@ -37,12 +37,15 @@ function Connected({ visible = false }: { visible?: boolean }) {
   );
 }
 
-function SyncSticker({ sync, className = "" }: { sync: SyncProp; className?: string }) {
+function SyncSticker({ sync, className = "", onStart }: { sync: SyncProp; className?: string; onStart?: () => void }) {
   const loading = sync.state === "loading";
   return (
     <StickerButton
       tone={loading ? "sun" : "cobalt"}
-      onClick={sync.run}
+      onClick={() => {
+        onStart?.();
+        sync.run();
+      }}
       disabled={loading}
       aria-busy={loading}
       // A running sync stays at full strength (not dimmed): the label is the only sign something is happening
@@ -61,46 +64,60 @@ export function TopBar({ email, documents, sync, variant, defaultOpen = false }:
   const [open, setOpen] = useState(defaultOpen);
   const menuId = useId();
   const loading = sync.state === "loading";
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const wrapper = useRef<HTMLDivElement>(null);
 
+  // The folded menu closes on Escape (focus goes back to the MENU button, which opened it) and on a press outside
+  // the bar, so it never hides the tape messages below it.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      menuButton.current?.focus();
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.target instanceof Node && !wrapper.current?.contains(e.target)) setOpen(false);
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
   }, [open]);
 
   return (
     <header className="relative z-20 px-3 pt-3 md:px-5 md:pt-4">
-      <div className="relative">
+      <div className="relative" ref={wrapper}>
         <div
           className="elev flex items-center justify-between gap-3 rounded-[var(--radius-card)] border-[length:var(--stroke)] border-[var(--line)] bg-[var(--panel)] px-2.5 py-2.5 [--elevation:var(--shadow-hard)] sm:px-3 md:gap-4"
         >
           <Link href="/" aria-label="Enagram home" className="flex shrink-0 items-center gap-2 rounded-[var(--radius-card)] sm:gap-3">
             <span
               aria-hidden
-              className="font-display flex h-11 w-11 items-center justify-center rounded-[var(--radius-card)] border-[length:var(--stroke)] border-[var(--line)] bg-[var(--cobalt)] text-2xl text-[var(--on-cobalt)] [box-shadow:var(--shadow-hard)]"
+              className="font-display flex h-11 w-11 items-center justify-center rounded-[var(--radius-card)] border-[length:var(--stroke)] border-[var(--line)] bg-[var(--cobalt)] text-2xl max-[359px]:h-9 max-[359px]:w-9 max-[359px]:text-xl text-[var(--on-cobalt)] [box-shadow:var(--shadow-hard)]"
             >
               E
             </span>
-            <span className="font-display inline-block rounded-[2px] border-[length:var(--stroke)] border-[var(--line)] bg-[var(--sun)] px-2 py-1.5 text-base tracking-wide text-[var(--on-sun)] sm:px-2.5 sm:text-lg [box-shadow:var(--shadow-hard-sm)] motion-safe:-rotate-2">
+            <span className="font-display inline-block rounded-[2px] border-[length:var(--stroke)] border-[var(--line)] bg-[var(--sun)] px-2 py-1.5 text-base tracking-wide text-[var(--on-sun)] max-[359px]:px-1.5 max-[359px]:text-sm sm:px-2.5 sm:text-lg [box-shadow:var(--shadow-hard-sm)] motion-safe:-rotate-2">
               ENAGRAM*
             </span>
           </Link>
 
           <button
+            ref={menuButton}
             type="button"
             aria-expanded={open}
             aria-controls={menuId}
             onClick={() => setOpen((v) => !v)}
-            className="pressable font-display inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-card)] border-[length:var(--stroke)] border-[var(--line)] bg-[var(--sun)] px-3 text-sm leading-none tracking-wide text-[var(--on-sun)] sm:px-4 md:hidden"
+            className="pressable font-display inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-card)] border-[length:var(--stroke)] border-[var(--line)] bg-[var(--sun)] px-3 text-sm leading-none tracking-wide text-[var(--on-sun)] max-[359px]:gap-1.5 max-[359px]:px-2 sm:px-4 md:hidden"
           >
             {open ? <X aria-hidden size={18} strokeWidth={3} /> : <Menu aria-hidden size={18} strokeWidth={3} />}
             MENU
             {loading ? (
               <>
-                <RefreshCw aria-hidden size={14} strokeWidth={3} className="motion-safe:animate-spin" />
+                <RefreshCw aria-hidden size={14} strokeWidth={3} className="motion-safe:animate-spin max-[359px]:hidden" />
                 <span className="sr-only">(syncing)</span>
               </>
             ) : null}
@@ -140,11 +157,18 @@ export function TopBar({ email, documents, sync, variant, defaultOpen = false }:
             </div>
 
             <div className="flex flex-col gap-4 md:ml-auto md:flex-row md:flex-wrap md:items-center md:justify-end md:gap-x-4 md:gap-y-2">
+              {/* Low priority: it only shows where there is room (the calendar bar also carries the CHAT chip, so it waits for 2xl). */}
+              <span
+                title={email}
+                className={`font-hand hidden max-w-[9rem] truncate text-lg text-[var(--ink-soft)] ${variant === "calendar" ? "2xl:block" : "xl:block"}`}
+              >
+                {email}
+              </span>
               {documents !== null ? (
                 <span className="font-hand text-2xl text-[var(--ink-soft)] md:-rotate-2 md:text-xl">{documents} docs indexed</span>
               ) : null}
-              <div className="flex items-center gap-4">
-                <SyncSticker sync={sync} className="max-md:flex-1" />
+              <div className="flex items-center gap-4 max-[359px]:gap-2">
+                <SyncSticker sync={sync} className="max-md:min-w-0 max-md:flex-1 max-md:px-3!" onStart={() => setOpen(false)} />
                 <ThemeToggle />
               </div>
               <form action={disconnect}>

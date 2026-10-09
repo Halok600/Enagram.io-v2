@@ -16,3 +16,11 @@ test("garbage is treated as unreachable and a non-number count as null", () => {
   assert.deepEqual(healthToView({ db: "ok", documents: "many" }), { status: "ok", documents: null });
   assert.equal(HEALTH_LOADING.status, "loading");
 });
+
+test("db ok without a documents field has a null count", () => {
+  assert.deepEqual(healthToView({ db: "ok" }), { status: "ok", documents: null });
+});
+
+test("an unknown db value is treated as unreachable", () => {
+  assert.deepEqual(healthToView({ db: "weird" }), HEALTH_UNREACHABLE);
+});
